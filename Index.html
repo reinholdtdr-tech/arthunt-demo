@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ARtHunt – Norderstedt Demo</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <style>
+    html, body, #map { height: 100%; margin: 0; }
+    .panel {
+      position: fixed; left: 12px; bottom: 12px;
+      background: rgba(255,255,255,.92); backdrop-filter: blur(8px);
+      padding: 10px 12px; border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.15);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      max-width: 92vw; z-index: 999;
+    }
+    .panel h1 { font-size: 14px; margin: 0 0 6px 0; }
+    .panel small { color: #666; }
+    .art-card { border: 1px solid #e5e7eb; border-radius: 10px; padding: 8px; margin-top: 8px; }
+    .btn { display: inline-block; padding: 8px 10px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+    .btn-primary { background: #111827; color: #fff; }
+    .btn-unlocked { background: #10b981; color: #fff; }
+    .modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none;
+      align-items: center; justify-content: center; z-index: 1000;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+    .modal.open { display: flex; }
+    .modal-card { background: #111; color: #fff; border-radius: 16px; padding: 16px;
+      max-width: min(720px, 92vw); box-shadow: 0 16px 48px rgba(0,0,0,.45); }
+    .modal-card img { max-width: 100%; border-radius: 12px; display: block; margin: 8px auto; }
+    .close { position: absolute; top: 16px; right: 16px; background: #fff; color:#111; border:0; border-radius: 8px; padding: 8px 10px; cursor:pointer; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div class="panel">
+    <h1>ARtHunt – Norderstedt</h1>
+    <small>Tippe auf einen Punkt. Vor Ort (50–80 m) kannst du das Werk ansehen.</small>
+    <div id="art-list"></div>
+  </div>
+
+  <div class="modal" id="modal">
+    <button class="close" onclick="closeModal()">Schließen</button>
+    <div class="modal-card">
+      <div id="modal-title" style="font-weight:700;margin-bottom:4px;"></div>
+      <div id="modal-artist" style="opacity:.8;margin-bottom:8px;"></div>
+      <img id="modal-img" alt="Artwork" />
+      <div id="modal-desc" style="opacity:.9;margin-top:8px;"></div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script>
+    // Startansicht Norderstedt (ungefähre Mitte)
+    const DEFAULT_CENTER = [53.707, 9.996];
+    const DEFAULT_ZOOM = 15;
+
+    const map = L.map('map', { zoomControl: true }).setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+    const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    // Beispiel-Orte in Norderstedt (Koordinaten grob, für Demo)
+    const artworks = [
+      {
+        id: 'nms', title: 'Norderstedt Mitte Rose', artist: 'Studio X',
+        lat: 53.7067, lon: 9.9959, radius: 60,
+        image: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=1200&auto=format&fit=crop',
+        description: 'Black stencil grenade with a blooming red rose at Norderstedt Mitte.'
+      },
+      {
+        id: 'stadtpark', title: 'Heartbeat im Stadtpark', artist: 'A. Miro',
+        lat: 53.7140, lon: 10.0060, radius: 80,
+        image: 'https://images.unsplash.com/photo-1496317556649-f930d733eea6?q=80&w=1200&auto=format&fit=crop',
+        description: 'City skyline morphing into a red heartbeat line near the See im Stadtpark.'
+      },
+      {
+        id: 'moorbek', title: 'Red Umbrella Moorbekpassage', artist: 'Mira K.',
+        lat: 53.7080, lon: 9.9915, radius: 70,
+        image: 'https://images.unsplash.com/photo-1491955478222-69ae25414368?q=80&w=1200&auto=format&fit=crop',
+        description: 'Silhouette with red umbrella; red drips forming hearts near Moorbekpassage.'
+      }
+    ];
+
+    const unlocked = {};
+    let userLatLng = null;
+
+    function toRad(d){return d*Math.PI/180;}
+    function haversine(a,b){
+      const R=6371000;
+      const dLat=toRad(b.lat-a.lat), dLon=toRad(b.lon-a.lon);
+      const la1=toRad(a.lat), la2=toRad(b.lat);
+      const h=Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2;
+      return 2*R*Math.asin(Math.sqrt(h));
+    }
+
+    const list = document.getElementById('art-list');
+    function renderList(){
+      list.innerHTML = '';
+      artworks.forEach(a=>{
+        const d = (userLatLng ? Math.round(haversine({lat:userLatLng.lat, lon:userLatLng.lng}, {lat:a.lat, lon:a.lon})) : null);
+        const card = document.createElement('div');
+        card.className = 'art-card';
+        card.innerHTML = `
+          <div style="font-weight:700">${a.title}</div>
+          <div style="font-size:12px;color:#666">${a.artist}</div>
+          <div style="font-size:12px;margin-top:4px">Radius: ${a.radius} m</div>
+          <div style="font-size:12px">Entfernung: ${d==null ? '–' : d+' m'}</div>
+          <button class="btn ${unlocked[a.id] ? 'btn-unlocked' : 'btn-primary'}" style="margin-top:6px;width:100%">
+            ${unlocked[a.id] ? 'Ansehen' : 'Vor Ort freischalten'}
+          </button>
+        `;
+        list.appendChild(card);
+        card.querySelector('button').addEventListener('click', ()=>tryUnlock(a));
+      });
+    }
+
+    artworks.forEach(a=>{
+      const m = L.circleMarker([a.lat, a.lon], {
+        radius: 7, color: '#111', weight: 2, fillColor: '#ef4444', fillOpacity: 1
+      }).addTo(map);
+      m.on('click', ()=>tryUnlock(a));
+    });
+
+    function tryUnlock(a){
+      if(!userLatLng){
+        alert('Position noch nicht bereit – bitte Standortfreigabe erlauben.');
+        return;
+      }
+      const dist = haversine({lat:userLatLng.lat, lon:userLatLng.lng},{lat:a.lat, lon:a.lon});
+      if(dist <= a.radius){
+        unlocked[a.id] = true;
+        openModal(a);
+        renderList();
+      } else {
+        alert('Zu weit weg – '+Math.round(dist)+' m (benötigt ≤ '+a.radius+' m)');
+      }
+    }
+
+    const modal = document.getElementById('modal');
+    function openModal(a){
+      document.getElementById('modal-title').textContent = a.title;
+      document.getElementById('modal-artist').textContent = a.artist;
+      document.getElementById('modal-img').src = a.image;
+      document.getElementById('modal-desc').textContent = a.description;
+      modal.classList.add('open');
+    }
+    function closeModal(){ modal.classList.remove('open'); }
+    window.closeModal = closeModal;
+
+    // Geolocation
+    function onLocation(pos){
+      const { latitude, longitude } = pos.coords;
+      const first = !userLatLng;
+      userLatLng = L.latLng(latitude, longitude);
+      if(first){ map.setView(userLatLng, 16); }
+      renderList();
+    }
+    function onLocationError(err){
+      console.warn(err);
+      renderList();
+    }
+    if('geolocation' in navigator){
+      navigator.geolocation.watchPosition(onLocation, onLocationError, { enableHighAccuracy:true, timeout:10000, maximumAge:5000 });
+    } else {
+      onLocationError(new Error('Geolocation nicht verfügbar'));
+    }
+
+    renderList();
+  </script>
+</body>
+</html>

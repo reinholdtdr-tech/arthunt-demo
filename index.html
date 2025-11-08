@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>ARtHunt – v2.6 (Inbox-Fix, Drawer-Autoclose, Threaded Replies)</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+html,body,#map{height:100%;margin:0}*{box-sizing:border-box}
+:root{--fg:#111827;--muted:#6b7280;--bg:#fff;--accent:#111827;--good:#10b981;--danger:#ef4444;--info:#2563eb;--infofill:#93c5fd}
+.fab,.fab2{position:fixed;top:12px;z-index:1000;width:44px;height:44px;border-radius:999px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 28px rgba(0,0,0,.18);cursor:pointer}
+.fab{right:12px}.fab2{right:62px}.fab span,.fab2 span{font-size:20px}
+.sheet{position:fixed;left:12px;right:12px;bottom:12px;background:rgba(255,255,255,.96);backdrop-filter:blur(8px);border-radius:14px;box-shadow:0 8px 28px rgba(0,0,0,.18);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial;overflow:hidden;z-index:999}
+.pill{width:40px;height:5px;border-radius:999px;background:#e5e7eb;margin:6px auto}.sheet-header{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;cursor:pointer}
+.title{font-weight:700;font-size:14px}.muted{color:var(--muted);font-size:12px}.sheet-body{padding:8px 10px;display:none}.sheet.open .sheet-body{display:block;max-height:42vh;overflow:auto}
+.art-card{border:1px solid #e5e7eb;border-radius:10px;padding:8px;background:#fff}.btn{display:inline-block;padding:8px 10px;border-radius:8px;font-weight:600;cursor:pointer;border:0}
+.btn-primary{background:var(--accent);color:#fff}.btn-unlocked{background:var(--good);color:#fff}.btn-ghost{background:#f3f4f6;color:#111}
+.badge{display:inline-block;padding:2px 6px;font-size:11px;border-radius:999px;background:#f3f4f6}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:1000;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
+.modal.open{display:flex}.modal-card{background:#111;color:#fff;border-radius:16px;padding:16px;max-width:min(720px,92vw);box-shadow:0 16px 48px rgba(0,0,0,.45);position:relative}
+.modal-card img{max-width:100%;border-radius:12px;display:block;margin:8px auto}.close{position:absolute;top:12px;right:12px;background:#fff;color:#111;border:0;border-radius:8px;padding:8px 10px;cursor:pointer}
+.chip{font-size:12px;background:#1f2937;padding:6px 8px;border-radius:999px}.comment{background:#0f172a;color:#fff;border-radius:8px;padding:6px 8px;margin-top:6px;font-size:13px}
+.comment-reply{margin-left:16px;opacity:.9}.comment-light{background:#fff;color:#111;border:1px solid #e5e7eb;border-radius:8px;padding:6px 8px;margin-top:6px;font-size:13px}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(520px,94vw);background:#fff;z-index:1001;box-shadow:-8px 0 28px rgba(0,0,0,.25);transform:translateX(100%);transition:transform .25s ease;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
+.drawer.open{transform:translateX(0)}.drawer header{padding:12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e5e7eb}
+.tabs{display:flex;gap:6px;padding:8px;border-bottom:1px solid #e5e7eb}.tabs button{padding:8px 10px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;cursor:pointer}
+.tabs button.active{background:#111827;color:#fff;border-color:#111827}.panel{display:none;padding:12px;overflow:auto;height:calc(100% - 96px)}.panel.active{display:block}
+.item{border:1px solid #e5e7eb;padding:8px;border-radius:8px;background:#fff}.field{margin-bottom:10px}.field label{display:block;font-size:12px;color:#374151;margin-bottom:4px}
+.field input,.field textarea{width:100%;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="fab2" id="menuBtn"><span>☰</span></div>
+<div class="fab" id="centerBtn"><span>◎</span></div>
+<div class="sheet" id="sheet">
+  <div class="pill"></div>
+  <div class="sheet-header" id="toggleSheet">
+    <div><div class="title">ARtHunt</div><div class="muted" id="status">Standort: wird ermittelt…</div></div>
+    <label class="muted" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="autoOpen" checked/> Auto-Öffnen vor Ort</label>
+  </div>
+  <div class="sheet-body">
+    <div style="display:flex;justify-content:space-between"><div class="muted">Gefunden:</div><span class="badge" id="progress">0/0</span></div>
+    <div id="art-list" style="display:grid;gap:8px;margin-top:8px"></div>
+  </div>
+</div>
+
+<aside class="drawer" id="drawer">
+  <header><h2 style="margin:0">Menü</h2><button class="btn btn-ghost" id="closeDrawer">Schließen</button></header>
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="activity">💬 Aktivität</button>
+    <button class="tab-btn" data-tab="settings">⚙️ Einstellungen</button>
+  </div>
+  <section class="panel active" id="panel-activity">
+    <h3>Aktivität (lokal)</h3>
+    <div id="activity"></div>
+    <h4>Kommentare zu meinen Werken</h4>
+    <div id="inbox"></div>
+  </section>
+  <section class="panel" id="panel-settings">
+    <button class="btn btn-ghost" id="btnClearLocal">Lokale Daten löschen</button>
+  </section>
+</aside>
+
+<div class="modal" id="modal">
+  <div class="modal-card">
+    <button class="close" onclick="modal.classList.remove('open')">Schließen</button>
+    <div id="modal-title" style="font-weight:700"></div>
+    <div id="modal-artist" style="opacity:.8;margin-bottom:6px"></div>
+    <img id="modal-img" alt="Artwork"/>
+    <div id="modal-desc" style="opacity:.9;margin-top:8px"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+      <button class="btn btn-ghost" id="btnLike">❤️ <span id="likeCount">0</span></button>
+      <button class="btn btn-ghost" id="btnAllCommentsBig">🗂️ Alle</button>
+    </div>
+    <div id="commentList"></div>
+  </div>
+</div>
+
+<div class="modal" id="commentsModal">
+  <div class="modal-card" style="max-width:min(560px,92vw)">
+    <button class="close" onclick="commentsModal.classList.remove('open')">Schließen</button>
+    <div style="font-weight:700;margin-bottom:6px">Alle Kommentare</div>
+    <div id="allCommentsList" style="max-height:60vh;overflow:auto"></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const DEFAULT_CENTER=[53.707,9.996],DEFAULT_ZOOM=15;
+const STORAGE_UNLOCK='u_v26',STORAGE_LIKES='l_v26',STORAGE_COMMENTS='c_v26',STORAGE_OWN='o_v26';
+let artworks=[{id:'demo',title:'Karlsbrücke',artist:'KI',lat:53.7067,lon:9.9959,radius:60,image:'https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=1200&auto=format&fit=crop',description:'Demo'}];
+const unlocked=JSON.parse(localStorage.getItem(STORAGE_UNLOCK)||'{}');
+const likes=JSON.parse(localStorage.getItem(STORAGE_LIKES)||'{}');
+const comments=JSON.parse(localStorage.getItem(STORAGE_COMMENTS)||'{}'); // {id:[{text,at,replies:[{text,at}]}]}
+let owned=JSON.parse(localStorage.getItem(STORAGE_OWN)||'[]');
+const save=()=>{localStorage.setItem(STORAGE_UNLOCK,JSON.stringify(unlocked));localStorage.setItem(STORAGE_LIKES,JSON.stringify(likes));localStorage.setItem(STORAGE_COMMENTS,JSON.stringify(comments));localStorage.setItem(STORAGE_OWN,JSON.stringify(owned))};
+
+function toRad(d){return d*Math.PI/180}function hav(a,b){const R=6371000;const dLat=toRad(b.lat-a.lat),dLon=toRad(b.lon-a.lon),la1=toRad(a.lat),la2=toRad(b.lat);const h=Math.sin(dLat/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(h))}
+
+const map=L.map('map').setView(DEFAULT_CENTER,DEFAULT_ZOOM);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OSM'}).addTo(map);
+let userMarker=null;
+
+const list=document.getElementById('art-list'),statusEl=document.getElementById('status'),progressEl=document.getElementById('progress'),autoOpen=document.getElementById('autoOpen');
+
+function renderList(pos){
+  list.innerHTML='';
+  artworks.forEach(a=>{
+    const d=pos?Math.round(hav({lat:pos.lat,lon:pos.lng},{lat:a.lat,lon:a.lon})):null;
+    const is=!!unlocked[a.id];
+    const card=document.createElement('div');card.className='art-card';
+    card.innerHTML=`<div style="display:flex;justify-content:space-between"><div><div style="font-weight:700">${a.title}</div><div style="font-size:12px;color:#666">${a.artist}</div></div><span class="badge">${is?'Freigeschaltet':'Verschlossen'}</span></div><div style="font-size:12px;margin-top:4px">Radius: ${a.radius} m</div><div style="font-size:12px">Entfernung: ${d==null?'–':d+' m'}</div><button class="btn ${is?'btn-unlocked':'btn-primary'}" style="margin-top:6px;width:100%">${is?'Ansehen':'Vor Ort freischalten'}</button>`;
+    list.appendChild(card);
+    card.querySelector('button').onclick=()=>{is?openModal(a):alert('Demo: Freischalten vor Ort');};
+  });
+  progressEl.textContent=`${Object.keys(unlocked).length} / ${artworks.length}`;
+}
+
+const modal=document.getElementById('modal'),commentsModal=document.getElementById('commentsModal');
+const likeBtn=document.getElementById('btnLike'),likeCount=document.getElementById('likeCount'),commentList=document.getElementById('commentList'),allCommentsList=document.getElementById('allCommentsList');
+let current=null;
+function renderCommentEl(c){const el=document.createElement('div');el.className='comment';el.textContent=c.text;(c.replies||[]).forEach(r=>{const rEl=document.createElement('div');rEl.className='comment comment-reply';rEl.textContent='↳ '+r.text;el.appendChild(rEl)});return el}
+function renderComments(id){commentList.innerHTML='';const arr=comments[id]||[];arr.slice(-3).forEach(c=>commentList.appendChild(renderCommentEl(c)));if(arr.length>3){const b=document.createElement('button');b.className='btn btn-ghost';b.textContent=`Alle ${arr.length} Kommentare anzeigen`;b.onclick=()=>openAllComments(id);commentList.appendChild(b)}}
+function openAllComments(id){allCommentsList.innerHTML='';(comments[id]||[]).forEach(c=>allCommentsList.appendChild(renderCommentEl(c)));commentsModal.classList.add('open')}
+function openModal(a){current=a;document.getElementById('modal-title').textContent=a.title;document.getElementById('modal-artist').textContent=a.artist;document.getElementById('modal-img').src=a.image;document.getElementById('modal-desc').textContent=a.description;likeCount.textContent=likes[a.id]||0;likeBtn.onclick=()=>{likes[a.id]=(likes[a.id]||0)+1;save();likeCount.textContent=likes[a.id]};renderComments(a.id);modal.classList.add('open')}
+
+function renderInbox(){const box=document.getElementById('inbox');box.innerHTML='';let items=[];owned.forEach(id=>{(comments[id]||[]).forEach((c,idx)=>items.push({id,idx,text:c.text,at:c.at}))});items.sort((a,b)=>(b.at||0)-(a.at||0));if(!items.length){box.innerHTML='<div class="item muted">Keine Kommentare.</div>';return}items.forEach(it=>{const aw=artworks.find(x=>x.id===it.id)||{title:'Unbekannt',artist:''};const el=document.createElement('div');el.className='item';const when=it.at?new Date(it.at).toLocaleString():'';el.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:700">${aw.title}</div><div class="muted" style="font-size:12px">${aw.artist} · ${when}</div></div><button class="btn btn-ghost" data-open>Öffnen</button></div><div class="comment-light" style="margin-top:6px">${it.text}</div><div style="display:flex;gap:6px;margin-top:8px"><button class="btn btn-ghost" data-reply>Antworten</button><button class="btn btn-ghost" data-del>Löschen</button></div>`;el.querySelector('[data-open]').onclick=()=>{drawer.classList.remove('open');openModal(aw)};el.querySelector('[data-reply]').onclick=()=>{const txt=prompt('Antwort schreiben:');if(!txt)return;const arr=comments[it.id]||[];const parent=arr[it.idx];if(!parent)return;parent.replies=parent.replies||[];parent.replies.push({text:'[Creator] '+txt,at:Date.now()});save();renderComments(it.id);renderInbox()};el.querySelector('[data-del]').onclick=()=>{if(!confirm('Kommentar löschen?'))return;comments[it.id].splice(it.idx,1);save();renderComments(it.id);renderInbox()};box.appendChild(el)})}
+
+const mapObj=L; // placeholder
+document.getElementById('menuBtn').onclick=()=>drawer.classList.add('open');document.getElementById('closeDrawer').onclick=()=>drawer.classList.remove('open');
+document.querySelectorAll('.tab-btn').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.getElementById('panel-'+b.dataset.tab).classList.add('active')});
+document.getElementById('centerBtn').onclick=()=>{if(userMarker)map.setView(userMarker.getLatLng(),16)};
+function onLoc(p){const {latitude,longitude,accuracy}=p.coords;statusEl.textContent='Standort aktiv – ±'+Math.round(accuracy)+' m';if(!userMarker){userMarker=L.circleMarker([latitude,longitude],{radius:8,color:'#2563eb',weight:2,fillColor:'#60a5fa',fillOpacity:1}).addTo(map)}else{userMarker.setLatLng([latitude,longitude])}renderList({lat:latitude,lng:longitude})}
+function onLocErr(){statusEl.textContent='Standortfehler';renderList(null)}
+if('geolocation'in navigator)navigator.geolocation.watchPosition(onLoc,onLocErr,{enableHighAccuracy:true,timeout:10000,maximumAge:5000});else onLocErr();
+renderList(null);renderInbox();
+
+document.getElementById('btnClearLocal').onclick=()=>{if(!confirm('Alle lokalen Daten (Likes/Kommentare/Unlocks) löschen?'))return;localStorage.clear();location.reload()}
+</script>
+</body>
+</html>

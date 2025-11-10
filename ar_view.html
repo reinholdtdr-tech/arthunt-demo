@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ARtHunt – AR Event Viewer</title>
+  <style>
+    html, body { margin:0; height:100%; background:#000; color:#fff; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+    .wrap { position:relative; height:100%; overflow:hidden; }
+    #video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; transform:scaleX(-1); background:#000; }
+    #overlayImg, #overlayVid { position:absolute; inset:0; margin:auto; max-width:92vw; max-height:92vh; display:none; pointer-events:none; }
+    .ui { position:fixed; left:0; right:0; bottom:0; padding:10px; background: linear-gradient(transparent, rgba(0,0,0,.65)); }
+    .row { display:flex; gap:8px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+    .badge { background:#111827; padding:6px 10px; border-radius:10px; font-weight:700; }
+    .btn { border:0; border-radius:10px; padding:10px 14px; font-weight:700; cursor:pointer; }
+    .btn-primary { background:#10b981; color:#031b12; }
+    .btn-disabled { background:#374151; color:#999; cursor:not-allowed; }
+    .slider { width:180px; }
+    .topbar { position:fixed; left:0; right:0; top:0; padding:10px; display:flex; justify-content:space-between; align-items:center;
+              background: linear-gradient(rgba(0,0,0,.65), transparent); }
+    .title { font-size:16px; font-weight:800; }
+    .muted { font-size:12px; opacity:.85; }
+    .pill { padding:6px 10px; border:1px solid rgba(255,255,255,.25); border-radius:999px; }
+    .hidden { display:none !important; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <video id="video" playsinline muted autoplay></video>
+    <img id="overlayImg" alt="Overlay">
+    <video id="overlayVid" playsinline loop></video>
+
+    <div class="topbar">
+      <div>
+        <div class="title" id="evTitle">AR Event</div>
+        <div class="muted" id="evSubtitle"></div>
+      </div>
+      <div id="statusBadge" class="pill">Vorbereitung…</div>
+    </div>
+
+    <div class="ui">
+      <div class="row" style="margin-bottom:6px;">
+        <div class="badge" id="countdown">--:--</div>
+        <div class="muted" id="geoStatus">Standort…</div>
+      </div>
+      <div class="row">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <label class="muted">Überblendung</label>
+          <input id="alpha" type="range" min="0" max="100" value="65" class="slider">
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button id="btnStart" class="btn btn-disabled">Warten…</button>
+          <button id="btnFlip" class="btn">Kamera wechseln</button>
+          <button id="btnExit" class="btn">Zurück</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+const qs = new URLSearchParams(location.search);
+const cfg = {
+  title: qs.get('title') || 'AR Event',
+  subtitle: qs.get('subtitle') || '',
+  overlay: qs.get('overlay') || '',
+  audio: qs.get('audio') || '',
+  start: qs.get('start') ? new Date(qs.get('start')) : null,
+  duration: parseInt(qs.get('duration')||'0',10) || 0,
+  lat: parseFloat(qs.get('lat')||'NaN'),
+  lon: parseFloat(qs.get('lon')||'NaN'),
+  radius: parseInt(qs.get('radius')||'150',10)
+};
+
+const video = document.getElementById('video');
+const overlayImg = document.getElementById('overlayImg');
+const overlayVid = document.getElementById('overlayVid');
+const alpha = document.getElementById('alpha');
+const countdown = document.getElementById('countdown');
+const btnStart = document.getElementById('btnStart');
+const btnFlip = document.getElementById('btnFlip');
+const btnExit = document.getElementById('btnExit');
+const evTitle = document.getElementById('evTitle');
+const evSubtitle = document.getElementById('evSubtitle');
+const geoStatus = document.getElementById('geoStatus');
+const statusBadge = document.getElementById('statusBadge');
+
+evTitle.textContent = cfg.title;
+evSubtitle.textContent = cfg.subtitle;
+
+const isVideoOverlay = /\.(mp4|webm|mov)$/i.test(cfg.overlay);
+if (isVideoOverlay) {
+  overlayVid.src = cfg.overlay;
+  overlayVid.style.display = 'block';
+} else {
+  overlayImg.src = cfg.overlay || '';
+  overlayImg.style.display = cfg.overlay ? 'block' : 'none';
+}
+
+function applyAlpha(){
+  const a = (parseInt(alpha.value,10) || 0) / 100;
+  overlayImg.style.opacity = String(a);
+  overlayVid.style.opacity = String(a);
+}
+alpha.addEventListener('input', applyAlpha);
+applyAlpha();
+
+let currentFacing = 'environment';
+let currentStream = null;
+
+async function startCamera(){
+  try {
+    if (currentStream) currentStream.getTracks().forEach(t=>t.stop());
+    const constraints = { video: { facingMode: currentFacing }, audio: false };
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    currentStream = stream;
+    video.srcObject = stream;
+  } catch (e) {
+    console.error(e);
+    alert('Kamera-Zugriff fehlgeschlagen. Bitte erlauben.');
+  }
+}
+btnFlip.addEventListener('click', ()=>{
+  currentFacing = (currentFacing === 'environment') ? 'user' : 'environment';
+  startCamera();
+});
+btnExit.addEventListener('click', ()=> history.back());
+
+function toRad(d){return d*Math.PI/180}
+function haversine(a,b){
+  const R=6371000;
+  const dLat=toRad(b.lat-a.lat), dLon=toRad(b.lon-a.lon);
+  const la1=toRad(a.lat), la2=toRad(b.lat);
+  const h=Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
+
+let userPos = null;
+function setGeoStatus(str){ geoStatus.textContent = str; }
+function inRadius(){ if(!userPos || isNaN(cfg.lat) || isNaN(cfg.lon)) return true; return haversine(userPos, {lat:cfg.lat, lon:cfg.lon}) <= (cfg.radius||150); }
+
+function updateCountdown(){
+  if (!cfg.start) { countdown.textContent = 'Live jederzeit'; return true; }
+  const now = new Date();
+  const t0 = cfg.start;
+  const t1 = new Date(t0.getTime() + cfg.duration*1000);
+  if (now < t0){
+    const ms = t0 - now;
+    const m = Math.floor(ms/60000), s = Math.floor((ms%60000)/1000);
+    countdown.textContent = `Start in ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    statusBadge.textContent = 'WARTEN';
+    statusBadge.style.background = '#7c3aed';
+    return false;
+  } else if (now >= t0 && now <= t1){
+    const ms = t1 - now;
+    const m = Math.floor(ms/60000), s = Math.floor((ms%60000)/1000);
+    countdown.textContent = `LIVE ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    statusBadge.textContent = 'LIVE';
+    statusBadge.style.background = '#10b981';
+    return true;
+  } else {
+    countdown.textContent = 'Event vorbei – Replay';
+    statusBadge.textContent = 'REPLAY';
+    statusBadge.style.background = '#374151';
+    return 'replay';
+  }
+}
+
+let audio = null;
+function stopAll(){
+  if (isVideoOverlay) overlayVid.pause();
+  if (audio) { audio.pause(); audio = null; }
+}
+function startPlayback(){
+  stopAll();
+  if (isVideoOverlay) { overlayVid.currentTime = 0; overlayVid.play(); }
+  if (cfg.audio) { audio = new Audio(cfg.audio); audio.play().catch(()=>{}); }
+}
+
+function refreshUI(){
+  const timeState = updateCountdown();
+  const okLoc = inRadius();
+
+  if (!okLoc){
+    btnStart.textContent = 'Zu weit entfernt';
+    btnStart.className = 'btn btn-disabled';
+  } else if (timeState === true) {
+    btnStart.textContent = 'Start';
+    btnStart.className = 'btn btn-primary';
+  } else if (timeState === 'replay') {
+    btnStart.textContent = 'Replay';
+    btnStart.className = 'btn btn-primary';
+  } else {
+    btnStart.textContent = 'Warten…';
+    btnStart.className = 'btn btn-disabled';
+  }
+}
+
+btnStart.addEventListener('click', ()=>{
+  if (btnStart.classList.contains('btn-disabled')) return;
+  startPlayback();
+});
+
+if ('geolocation' in navigator){
+  navigator.geolocation.watchPosition(pos=>{
+    const { latitude, longitude, accuracy } = pos.coords;
+    userPos = { lat: latitude, lon: longitude };
+    setGeoStatus(`Standort aktiv – ±${Math.round(accuracy)} m`);
+  }, err=>{
+    setGeoStatus('Standortfehler – Freigabe?'); 
+  }, { enableHighAccuracy:true, timeout:10000, maximumAge:5000 });
+} else {
+  setGeoStatus('Geolocation nicht verfügbar');
+}
+
+setInterval(refreshUI, 1000);
+startCamera();
+refreshUI();
+applyAlpha();
+</script>
+</body>
+</html>

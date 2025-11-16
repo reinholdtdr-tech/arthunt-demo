@@ -261,17 +261,44 @@
     const STORAGE_LIST_RADIUS = 'arthunt_list_radius_km_v2_5';
     const STORAGE_OWNED = 'arthunt_owned_ids_v2_5';
 
-    const DEFAULT_ARTWORKS = [
-      { id:'nms', title:'Norderstedt Mitte Rose', artist:'Studio X', lat:53.7067, lon:9.9959, radius:60,
-        image:'https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=1200&auto=format&fit=crop',
-        description:'Black stencil grenade with a blooming red rose at Norderstedt Mitte.' },
-      { id:'stadtpark', title:'Heartbeat im Stadtpark', artist:'A. Miro', lat:53.7140, lon:10.0060, radius:80,
-        image:'https://images.unsplash.com/photo-1496317556649-f930d733eea6?q=80&w=1200&auto=format&fit=crop',
-        description:'City skyline morphing into a red heartbeat line near dem See im Stadtpark.' },
-      { id:'moorbek', title:'Red Umbrella Moorbekpassage', artist:'Mira K.', lat:53.7080, lon:9.9915, radius:70,
-        image:'https://images.unsplash.com/photo-1491955478222-69ae25414368?q=80&w=1200&auto=format&fit=crop',
-        description:'Silhouette mit rotem Schirm; rote Tropfen formen Herzen bei der Moorbekpassage.' }
-    ];
+  const DEFAULT_ARTWORKS = [
+  {
+    id: 'nms',
+    title: 'Norderstedt Mitte Rose',
+    artist: 'Studio X',
+    lat: 53.7067,
+    lon: 9.9959,
+    radius: 60,
+    image: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=1200&auto=format&fit=crop',
+    description: 'Black stencil grenade with a blooming red rose at Norderstedt Mitte.',
+    ar: {
+      glb: 'https://modelviewer.dev/shared-assets/models/Astronaut.glb',
+      usdz: 'https://modelviewer.dev/shared-assets/models/Astronaut.usdz',
+      scale: 100,
+      rot: 0
+    }
+  },
+  {
+    id:'stadtpark',
+    title:'Heartbeat im Stadtpark',
+    artist:'A. Miro',
+    lat:53.7140,
+    lon:10.0060,
+    radius:80,
+    image:'https://images.unsplash.com/photo-1496317556649-f930d733eea6?q=80&w=1200&auto=format&fit=crop',
+    description:'City skyline morphing into a red heartbeat line near dem See im Stadtpark.'
+  },
+  {
+    id:'moorbek',
+    title:'Red Umbrella Moorbekpassage',
+    artist:'Mira K.',
+    lat:53.7080,
+    lon:9.9915,
+    radius:70,
+    image:'https://images.unsplash.com/photo-1491955478222-69ae25414368?q=80&w=1200&auto=format&fit=crop',
+    description:'Silhouette mit rotem Schirm; rote Tropfen formen Herzen bei der Moorbekpassage.'
+  }
+];
 
     // State
     let artworks = [];

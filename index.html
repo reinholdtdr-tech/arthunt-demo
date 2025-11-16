@@ -201,13 +201,13 @@
       <div style="opacity:.8;margin-bottom:6px;" id="modal-artist"></div>
       <img id="modal-img" alt="Artwork" onerror="this.onerror=null;this.src='https://picsum.photos/seed/arthunt/1200/800';" />
       <div id="modal-desc" style="opacity:.9;margin-top:8px;"></div>
-      <div class="modal-actions">
-        <button class="btn btn-ghost" id="btnLike">❤️ <span id="likeCount">0</span></button>
-        <button class="btn btn-ghost" id="btnShare">↗️ Teilen</button>
-        <button class="btn btn-ghost" id="btnAllCommentsBig">🗂️ Alle</button>
-        <button class="btn btn-primary" id="btnPlay" style="display:none">▶️ Play</button>
-        <button class="btn btn-ghost" id="btnAr" style="display:none">🕶️ In AR ansehen</button>
-      </div>
+ <div class="modal-actions">
+  <button class="btn btn-ghost" id="btnLike">❤️ <span id="likeCount">0</span></button>
+  <button class="btn btn-ghost" id="btnShare">↗️ Teilen</button>
+  <button class="btn btn-ghost" id="btnAllCommentsBig">🗂️ Alle</button>
+  <button class="btn btn-ghost" id="btnAr" style="display:none">🕶️ In AR ansehen</button>
+  <button class="btn btn-ghost" id="btnArGeo" style="display:none">📍 Am Ort in AR</button>
+</div>
       <div id="commentList"></div>
       <div style="display:flex; gap:6px; margin-top:8px;">
         <input id="commentInput" placeholder="Kommentar hinzufügen…" style="flex:1; padding:8px 10px; border-radius:8px; border:1px solid #374151; background:#0b1220; color:#fff;" />
@@ -506,7 +506,7 @@
     const likeCountEl = document.getElementById('likeCount');
     const shareBtn = document.getElementById('btnShare');
     const playBtn = document.getElementById('btnPlay');
-    const btnAr = document.getElementById('btnAr');
+    const btnArGeo = document.getElementById('btnArGeo');
     const commentList = document.getElementById('commentList');
     const commentInput = document.getElementById('commentInput');
     const commentSend = document.getElementById('commentSend');
@@ -590,23 +590,42 @@
       document.getElementById('modal-artist').textContent = a.artist || '';
       document.getElementById('modal-img').src = a.image || 'https://picsum.photos/seed/arthunt/1200/800';
       document.getElementById('modal-desc').textContent = a.description || '';
-            // AR-Button konfigurieren
-      if (a.ar && a.ar.glb) {
-        btnAr.style.display = 'inline-block';
-        btnAr.onclick = () => {
-          const url = new URL('ar_basic.html', window.location.href);
-          url.searchParams.set('title', a.title || '');
-          url.searchParams.set('subtitle', a.artist || '');
-          url.searchParams.set('glb', a.ar.glb || '');
-          if (a.ar.usdz)  url.searchParams.set('usdz', a.ar.usdz);
-          if (a.ar.scale) url.searchParams.set('scale', String(a.ar.scale));
-          if (typeof a.ar.rot === 'number') url.searchParams.set('rot', String(a.ar.rot));
-          window.location.href = url.toString();
-        };
-      } else {
-        btnAr.style.display = 'none';
-        btnAr.onclick = null;
-      }
+       // --- AR-Buttons konfigurieren ---
+if (a.ar && a.ar.glb) {
+  // „freies“ AR (wie bisher)
+  btnAr.style.display = 'inline-block';
+  btnAr.onclick = () => {
+    const url = new URL('ar_basic.html', window.location.href);
+    url.searchParams.set('title', a.title || '');
+    url.searchParams.set('subtitle', a.artist || '');
+    url.searchParams.set('glb', a.ar.glb || '');
+    if (a.ar.usdz)  url.searchParams.set('usdz', a.ar.usdz);
+    if (a.ar.scale) url.searchParams.set('scale', String(a.ar.scale));
+    if (typeof a.ar.rot === 'number') url.searchParams.set('rot', String(a.ar.rot));
+    window.location.href = url.toString();
+  };
+
+  // Geo-AR (am Ort)
+  btnArGeo.style.display = 'inline-block';
+  btnArGeo.onclick = () => {
+    const url = new URL('geo_ar.html', window.location.href);
+    url.searchParams.set('title', a.title || '');
+    url.searchParams.set('subtitle', a.artist || '');
+    url.searchParams.set('lat', a.lat);
+    url.searchParams.set('lon', a.lon);
+    url.searchParams.set('model', a.ar.glb || '');
+    // etwas kleinere Skala für AR.js, z.B. 1–10 statt 100
+    const s = a.ar.scale ? (a.ar.scale / 100) : 1;
+    url.searchParams.set('scale', String(s));
+    window.location.href = url.toString();
+  };
+} else {
+  btnAr.style.display = 'none';
+  btnAr.onclick = null;
+  btnArGeo.style.display = 'none';
+  btnArGeo.onclick = null;
+}
+
 
       likeCountEl.textContent = likes[a.id] || 0;
       likeBtn.onclick = ()=>{ likes[a.id] = (likes[a.id]||0) + 1; saveLikes(); likeCountEl.textContent = likes[a.id]; };

@@ -206,6 +206,7 @@
         <button class="btn btn-ghost" id="btnShare">↗️ Teilen</button>
         <button class="btn btn-ghost" id="btnAllCommentsBig">🗂️ Alle</button>
         <button class="btn btn-primary" id="btnPlay" style="display:none">▶️ Play</button>
+        <button class="btn btn-ghost" id="btnAr" style="display:none">🕶️ In AR ansehen</button>
       </div>
       <div id="commentList"></div>
       <div style="display:flex; gap:6px; margin-top:8px;">
@@ -478,6 +479,7 @@
     const likeCountEl = document.getElementById('likeCount');
     const shareBtn = document.getElementById('btnShare');
     const playBtn = document.getElementById('btnPlay');
+    const btnAr = document.getElementById('btnAr');
     const commentList = document.getElementById('commentList');
     const commentInput = document.getElementById('commentInput');
     const commentSend = document.getElementById('commentSend');
@@ -561,6 +563,23 @@
       document.getElementById('modal-artist').textContent = a.artist || '';
       document.getElementById('modal-img').src = a.image || 'https://picsum.photos/seed/arthunt/1200/800';
       document.getElementById('modal-desc').textContent = a.description || '';
+            // AR-Button konfigurieren
+      if (a.ar && a.ar.glb) {
+        btnAr.style.display = 'inline-block';
+        btnAr.onclick = () => {
+          const url = new URL('ar_basic.html', window.location.href);
+          url.searchParams.set('title', a.title || '');
+          url.searchParams.set('subtitle', a.artist || '');
+          url.searchParams.set('glb', a.ar.glb || '');
+          if (a.ar.usdz)  url.searchParams.set('usdz', a.ar.usdz);
+          if (a.ar.scale) url.searchParams.set('scale', String(a.ar.scale));
+          if (typeof a.ar.rot === 'number') url.searchParams.set('rot', String(a.ar.rot));
+          window.location.href = url.toString();
+        };
+      } else {
+        btnAr.style.display = 'none';
+        btnAr.onclick = null;
+      }
 
       likeCountEl.textContent = likes[a.id] || 0;
       likeBtn.onclick = ()=>{ likes[a.id] = (likes[a.id]||0) + 1; saveLikes(); likeCountEl.textContent = likes[a.id]; };
@@ -726,7 +745,7 @@
             </div>
             <button class="btn btn-ghost" data-open>Öffnen</button>
           </div>
-          <div class="comment" style="margin-top:6px">${it.text}</div>
+                 <div class="comment-light" style="margin-top:6px">${it.text}</div>
           <div style="display:flex;gap:6px;margin-top:8px;">
             <button class="btn btn-ghost" data-reply>Antworten</button>
             <button class="btn btn-ghost" data-del>Löschen</button>

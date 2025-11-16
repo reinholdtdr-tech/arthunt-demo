@@ -3,18 +3,19 @@
   "id": "nms",
   "title": "Norderstedt Mitte Rose",
   "artist": "Studio X",
-  "lat": 53.7067,
-  "lon": 9.9959,
+  "lat": 53.702612,
+  "lon": 9.981898,
   "radius": 60,
-  "image": "https://deinhost/rose.jpg",
-  "description": "Black stencil grenade mit Rose.",
+  "image": "...",
+  "description": "...",
+
   "ar": {
-    "glb": "https://deinhost/rose.glb",
-    "usdz": "https://deinhost/rose.usdz",
-    "scale": 120,
+    "glb": "https://modelviewer.dev/shared-assets/models/Astronaut.glb",
+    "usdz": "https://modelviewer.dev/shared-assets/models/Astronaut.usdz",
+    "scale": 100,
     "rot": 0
   }
-},
+}
   {
     "id": "stadtpark",
     "title": "Heartbeat im Stadtpark",

@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <title>ARtHunt – Geo-AR</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+
+  <!-- A-Frame + AR.js mit GPS-Unterstützung -->
+  <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background: #000;
+      color: #fff;
+    }
+    #hud {
+      position: fixed;
+      left: 0;
+      right: 0;
+      top: 0;
+      padding: 8px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: linear-gradient(to bottom, rgba(0,0,0,.8), transparent);
+      z-index: 10;
+      font-size: 13px;
+    }
+    #hud .title {
+      font-weight: 600;
+    }
+    #hud .subtitle {
+      opacity: .8;
+      font-size: 12px;
+    }
+    #hud button {
+      border-radius: 999px;
+      border: 0;
+      padding: 6px 10px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    #msg {
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: 10px;
+      padding: 6px 10px;
+      background: rgba(0,0,0,.7);
+      border-radius: 999px;
+      font-size: 12px;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+<div id="hud">
+  <div>
+    <div id="title" class="title">ARtHunt Geo-AR</div>
+    <div id="subtitle" class="subtitle"></div>
+  </div>
+  <button onclick="goBack()">Zurück</button>
+</div>
+<div id="msg">Suche GPS-Position…</div>
+
+<!-- AR-Szene -->
+<a-scene
+    vr-mode-ui="enabled: false"
+    embedded
+    renderer="logarithmicDepthBuffer: true;"
+    arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false;">
+
+  <!-- Kamera liest GPS & Kompass -->
+  <a-camera gps-camera rotation-reader></a-camera>
+
+  <!-- Unser Kunstwerk; Werte setzen wir per JS -->
+  <a-entity id="art-entity"
+            gps-entity-place="latitude: 0; longitude: 0;"
+            gltf-model=""
+            scale="1 1 1">
+  </a-entity>
+</a-scene>
+
+<script>
+  // URL-Parameter lesen
+  const qs = new URLSearchParams(location.search);
+  const title = qs.get('title') || 'ARtHunt Geo-AR';
+  const subtitle = qs.get('subtitle') || '';
+  const lat = parseFloat(qs.get('lat') || '0');
+  const lon = parseFloat(qs.get('lon') || '0');
+  const model = qs.get('model') || '';
+  const scaleParam = parseFloat(qs.get('scale') || '1');
+
+  document.getElementById('title').textContent = title;
+  document.getElementById('subtitle').textContent = subtitle || `Ziel: ${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+
+  const art = document.getElementById('art-entity');
+
+  // Modell & Position setzen, wenn Szene bereit ist
+  window.addEventListener('load', () => {
+    if (model) {
+      art.setAttribute('gltf-model', model);
+    }
+    art.setAttribute('gps-entity-place', `latitude: ${lat}; longitude: ${lon};`);
+    art.setAttribute('scale', `${scaleParam} ${scaleParam} ${scaleParam}`);
+  });
+
+  // einfache Statusmeldungen zur Orientierung
+  window.addEventListener('gps-camera-update-position', (e) => {
+    const { position } = e.detail;
+    const d = distanceMeters(position.latitude, position.longitude, lat, lon);
+    document.getElementById('msg').textContent =
+      `Du bist ca. ${d.toFixed(0)} m vom Werk entfernt. Schau dich um – das Objekt sollte in der Nähe schweben.`;
+  });
+
+  function distanceMeters(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const toRad = x => x * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat/2)**2 +
+              Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*
+              Math.sin(dLon/2)**2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  }
+
+  function goBack() {
+    if (document.referrer) history.back();
+    else location.href = './';
+  }
+</script>
+</body>
+</html>

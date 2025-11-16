@@ -1,21 +1,20 @@
 [
-{
-  "id": "nms",
-  "title": "Norderstedt Mitte Rose",
-  "artist": "Studio X",
-  "lat": 53.702612,
-  "lon": 9.981898,
-  "radius": 60,
-  "image": "...",
-  "description": "...",
-
-  "ar": {
-    "glb": "https://modelviewer.dev/shared-assets/models/Astronaut.glb",
-    "usdz": "https://modelviewer.dev/shared-assets/models/Astronaut.usdz",
-    "scale": 100,
-    "rot": 0
-  }
-}
+  {
+    "id": "nms",
+    "title": "Norderstedt Mitte Rose",
+    "artist": "Studio X",
+    "lat": 53.702612,
+    "lon": 9.981898,
+    "radius": 60,
+    "image": "https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=1200&auto=format&fit=crop",
+    "description": "Black stencil grenade with a blooming red rose at Norderstedt Mitte.",
+    "ar": {
+      "glb": "https://modelviewer.dev/shared-assets/models/Astronaut.glb",
+      "usdz": "https://modelviewer.dev/shared-assets/models/Astronaut.usdz",
+      "scale": 100,
+      "rot": 0
+    }
+  },
   {
     "id": "stadtpark",
     "title": "Heartbeat im Stadtpark",

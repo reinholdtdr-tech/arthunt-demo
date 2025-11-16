@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ARtHunt – AR Viewer</title>
+
+  <!-- model-viewer (Google) für WebXR / Scene Viewer / Quick Look -->
+  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: #000;
+      color: #fff;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    }
+    .wrap {
+      position: relative;
+      height: 100%;
+      overflow: hidden;
+    }
+    model-viewer {
+      width: 100%;
+      height: 100%;
+      background: #000;
+    }
+    .topbar {
+      position: fixed;
+      left: 10px;
+      right: 10px;
+      top: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .pill {
+      background: rgba(0,0,0,0.6);
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.25);
+      padding: 6px 12px;
+      font-size: 13px;
+      pointer-events: auto;
+    }
+    .title {
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .muted {
+      font-size: 12px;
+      opacity: 0.8;
+    }
+    .controls {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 10px;
+      background: linear-gradient(transparent, rgba(0,0,0,0.75));
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .slider {
+      width: 150px;
+    }
+    .btn {
+      border: 0;
+      border-radius: 999px;
+      padding: 9px 14px;
+      background: #111827;
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .btn-primary {
+      background: #10b981;
+      color: #022c22;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <model-viewer id="mv"
+      src=""
+      ios-src=""
+      ar
+      ar-modes="webxr scene-viewer quick-look"
+      camera-controls
+      auto-rotate
+      exposure="1"
+      shadow-intensity="0.7"
+      environment-image="neutral">
+    </model-viewer>
+
+    <div class="topbar">
+      <div class="pill">
+        <div id="title" class="title">ARtHunt</div>
+        <div id="subtitle" class="muted"></div>
+      </div>
+      <button id="btnBack" class="pill">Zurück</button>
+    </div>
+
+    <div class="controls">
+      <div class="row">
+        <span class="muted">Größe</span>
+        <input id="scale" class="slider" type="range" min="10" max="400" value="100">
+        <span class="muted">Drehung (Y)</span>
+        <input id="rot" class="slider" type="range" min="0" max="360" value="0">
+      </div>
+      <button id="btnAR" class="btn btn-primary">In AR platzieren</button>
+    </div>
+  </div>
+
+<script>
+/**
+ * Aufruf:
+ * ar_basic.html
+ *   ?title=Rose
+ *   &subtitle=Studio%20X
+ *   &glb=https://deinhost/rose.glb
+ *   &usdz=https://deinhost/rose.usdz   (optional, für iOS)
+ *   &scale=120                        (optional, 100 = 1.0)
+ *   &rot=45                           (optional, Grad)
+ */
+
+const qs = new URLSearchParams(location.search);
+const title = qs.get('title') || 'ARtHunt';
+const subtitle = qs.get('subtitle') || '';
+const glb = qs.get('glb') || '';
+const usdz = qs.get('usdz') || '';
+const scale0 = parseInt(qs.get('scale') || '100', 10);
+const rot0 = parseFloat(qs.get('rot') || '0');
+
+const mv = document.getElementById('mv');
+const titleEl = document.getElementById('title');
+const subtitleEl = document.getElementById('subtitle');
+const scaleEl = document.getElementById('scale');
+const rotEl = document.getElementById('rot');
+const btnAR = document.getElementById('btnAR');
+const btnBack = document.getElementById('btnBack');
+
+titleEl.textContent = title;
+subtitleEl.textContent = subtitle;
+
+if (glb) mv.src = glb;
+if (usdz) mv.setAttribute('ios-src', usdz);
+
+// Slider initial setzen
+scaleEl.value = String(scale0);
+rotEl.value = String(rot0);
+
+function applyTransforms() {
+  const s = (parseInt(scaleEl.value, 10) || 100) / 100;
+  const r = parseFloat(rotEl.value) || 0;
+  mv.setAttribute('scale', `${s} ${s} ${s}`);
+  mv.setAttribute('orientation', `0deg ${r}deg 0deg`);
+}
+
+scaleEl.addEventListener('input', applyTransforms);
+rotEl.addEventListener('input', applyTransforms);
+
+btnAR.addEventListener('click', () => {
+  // Öffnet WebXR / Scene Viewer / Quick Look
+  mv.activateAR();
+});
+
+btnBack.addEventListener('click', () => {
+  if (document.referrer) {
+    history.back();
+  } else {
+    window.location.href = './';
+  }
+});
+
+applyTransforms();
+</script>
+</body>
+</html>

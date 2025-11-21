@@ -1,191 +1,230 @@
 <!doctype html>
 <html lang="de">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8" />
   <title>ARtHunt – AR Viewer</title>
-
-  <!-- model-viewer (Google) für WebXR / Scene Viewer / Quick Look -->
-  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
-
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script
+    type="module"
+    src="https://unpkg.com/@google/model-viewer@3.5.0/dist/model-viewer.min.js"
+  ></script>
   <style>
-    html, body {
-      height: 100%;
-      margin: 0;
-      background: #000;
-      color: #fff;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    :root {
+      color-scheme: dark;
+      --bg: #020617;
+      --card: #020617;
+      --accent: #22c55e;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
     }
-    .wrap {
-      position: relative;
+    * {
+      box-sizing: border-box;
+    }
+    html,
+    body {
+      margin: 0;
+      padding: 0;
       height: 100%;
-      overflow: hidden;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: #000;
+      color: var(--text);
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 0.6rem 0.85rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      background: radial-gradient(
+          circle at top left,
+          rgba(34, 197, 94, 0.3),
+          transparent 60%
+        ),
+        rgba(15, 23, 42, 0.96);
+      backdrop-filter: blur(14px);
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.8);
+      z-index: 2;
+    }
+    .titles {
+      display: flex;
+      flex-direction: column;
+      gap: 0.1rem;
+    }
+    .titles h1 {
+      font-size: 0.95rem;
+      margin: 0;
+      font-weight: 600;
+    }
+    .titles span {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .btn-close {
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      background: rgba(15, 23, 42, 0.95);
+      color: var(--text);
+      padding: 0.3rem 0.7rem;
+      font-size: 0.78rem;
+      cursor: pointer;
+    }
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      background: #000;
     }
     model-viewer {
       width: 100%;
       height: 100%;
-      background: #000;
-    }
-    .topbar {
-      position: fixed;
-      left: 10px;
-      right: 10px;
-      top: 10px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 8px;
-      pointer-events: none;
-    }
-    .pill {
-      background: rgba(0,0,0,0.6);
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,0.25);
-      padding: 6px 12px;
-      font-size: 13px;
-      pointer-events: auto;
-    }
-    .title {
-      font-weight: 700;
-      font-size: 14px;
-    }
-    .muted {
-      font-size: 12px;
-      opacity: 0.8;
+      background-color: #000;
     }
     .controls {
       position: fixed;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      padding: 10px;
-      background: linear-gradient(transparent, rgba(0,0,0,0.75));
+      left: 0.5rem;
+      right: 0.5rem;
+      bottom: 0.6rem;
+      padding: 0.55rem 0.7rem 0.55rem;
+      border-radius: 1rem;
+      background: radial-gradient(
+          circle at top left,
+          rgba(34, 197, 94, 0.28),
+          transparent 60%
+        ),
+        rgba(15, 23, 42, 0.96);
+      backdrop-filter: blur(18px);
+      box-shadow: 0 -18px 50px rgba(0, 0, 0, 0.9);
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
+      flex-direction: column;
+      gap: 0.35rem;
+      font-size: 0.8rem;
+      z-index: 3;
     }
-    .row {
+    .control-row {
       display: flex;
-      gap: 8px;
       align-items: center;
-      flex-wrap: wrap;
+      gap: 0.5rem;
     }
-    .slider {
-      width: 150px;
+    .control-row label {
+      min-width: 70px;
+      color: var(--muted);
+      font-size: 0.78rem;
     }
-    .btn {
-      border: 0;
+    input[type="range"] {
+      flex: 1;
+    }
+    .ar-button {
+      margin-top: 0.25rem;
       border-radius: 999px;
-      padding: 9px 14px;
-      background: #111827;
-      color: #fff;
-      font-weight: 600;
-      cursor: pointer;
-      font-size: 13px;
-    }
-    .btn-primary {
-      background: #10b981;
+      border: none;
+      padding: 0.45rem 0.7rem;
+      font-size: 0.8rem;
+      font-weight: 500;
+      background: linear-gradient(
+        to right,
+        #22c55e,
+        #4ade80
+      );
       color: #022c22;
+      cursor: pointer;
+      box-shadow: 0 12px 35px rgba(34, 197, 94, 0.7);
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <model-viewer id="mv"
-      src=""
-      ios-src=""
+  <header>
+    <div class="titles">
+      <h1 id="title">ARtHunt – AR</h1>
+      <span id="subtitle"></span>
+    </div>
+    <button class="btn-close" onclick="goBack()">Zurück</button>
+  </header>
+  <main>
+    <model-viewer
+      id="viewer"
+      autoplay
+      camera-controls
       ar
       ar-modes="webxr scene-viewer quick-look"
-      camera-controls
-      auto-rotate
       exposure="1"
-      shadow-intensity="0.7"
-      environment-image="neutral">
-    </model-viewer>
-
-    <div class="topbar">
-      <div class="pill">
-        <div id="title" class="title">ARtHunt</div>
-        <div id="subtitle" class="muted"></div>
-      </div>
-      <button id="btnBack" class="pill">Zurück</button>
+      shadow-intensity="0.9"
+      shadow-softness="0.8"
+      environment-image="neutral"
+    ></model-viewer>
+  </main>
+  <div class="controls">
+    <div class="control-row">
+      <label for="sizeRange">Größe</label>
+      <input id="sizeRange" type="range" min="50" max="200" value="100" />
     </div>
-
-    <div class="controls">
-      <div class="row">
-        <span class="muted">Größe</span>
-        <input id="scale" class="slider" type="range" min="10" max="400" value="100">
-        <span class="muted">Drehung (Y)</span>
-        <input id="rot" class="slider" type="range" min="0" max="360" value="0">
-      </div>
-      <button id="btnAR" class="btn btn-primary">In AR platzieren</button>
+    <div class="control-row">
+      <label for="rotRange">Drehung (Y)</label>
+      <input id="rotRange" type="range" min="0" max="360" value="0" />
     </div>
+    <button class="ar-button" id="btnPlaceAr">In AR platzieren</button>
   </div>
 
-<script>
-/**
- * Aufruf:
- * ar_basic.html
- *   ?title=Rose
- *   &subtitle=Studio%20X
- *   &glb=https://deinhost/rose.glb
- *   &usdz=https://deinhost/rose.usdz   (optional, für iOS)
- *   &scale=120                        (optional, 100 = 1.0)
- *   &rot=45                           (optional, Grad)
- */
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const title = params.get("title") || "ARtHunt – AR";
+    const subtitle = params.get("subtitle") || "";
+    const glb = params.get("glb");
+    const usdz = params.get("usdz");
+    const scaleParam = parseFloat(params.get("scale") || "100");
+    const rotParam = parseFloat(params.get("rot") || "0");
 
-const qs = new URLSearchParams(location.search);
-const title = qs.get('title') || 'ARtHunt';
-const subtitle = qs.get('subtitle') || '';
-const glb = qs.get('glb') || '';
-const usdz = qs.get('usdz') || '';
-const scale0 = parseInt(qs.get('scale') || '100', 10);
-const rot0 = parseFloat(qs.get('rot') || '0');
+    document.getElementById("title").textContent = title;
+    document.getElementById("subtitle").textContent = subtitle;
 
-const mv = document.getElementById('mv');
-const titleEl = document.getElementById('title');
-const subtitleEl = document.getElementById('subtitle');
-const scaleEl = document.getElementById('scale');
-const rotEl = document.getElementById('rot');
-const btnAR = document.getElementById('btnAR');
-const btnBack = document.getElementById('btnBack');
+    const viewer = document.getElementById("viewer");
+    const sizeRange = document.getElementById("sizeRange");
+    const rotRange = document.getElementById("rotRange");
+    const btnPlaceAr = document.getElementById("btnPlaceAr");
 
-titleEl.textContent = title;
-subtitleEl.textContent = subtitle;
+    if (glb) {
+      viewer.src = glb;
+    }
+    if (usdz) {
+      viewer.setAttribute("ios-src", usdz);
+    }
 
-if (glb) mv.src = glb;
-if (usdz) mv.setAttribute('ios-src', usdz);
+    function applyScale(val) {
+      const s = (val || 100) / 100;
+      viewer.scale = `${s} ${s} ${s}`;
+    }
+    function applyRotation(val) {
+      const r = val || 0;
+      viewer.orientation = `0deg ${r}deg 0deg`;
+    }
 
-// Slider initial setzen
-scaleEl.value = String(scale0);
-rotEl.value = String(rot0);
+    sizeRange.value = scaleParam;
+    rotRange.value = rotParam;
+    applyScale(scaleParam);
+    applyRotation(rotParam);
 
-function applyTransforms() {
-  const s = (parseInt(scaleEl.value, 10) || 100) / 100;
-  const r = parseFloat(rotEl.value) || 0;
-  mv.setAttribute('scale', `${s} ${s} ${s}`);
-  mv.setAttribute('orientation', `0deg ${r}deg 0deg`);
-}
+    sizeRange.addEventListener("input", () => {
+      applyScale(parseFloat(sizeRange.value));
+    });
+    rotRange.addEventListener("input", () => {
+      applyRotation(parseFloat(rotRange.value));
+    });
 
-scaleEl.addEventListener('input', applyTransforms);
-rotEl.addEventListener('input', applyTransforms);
+    btnPlaceAr.addEventListener("click", () => {
+      viewer.activateAR();
+    });
 
-btnAR.addEventListener('click', () => {
-  // Öffnet WebXR / Scene Viewer / Quick Look
-  mv.activateAR();
-});
-
-btnBack.addEventListener('click', () => {
-  if (document.referrer) {
-    history.back();
-  } else {
-    window.location.href = './';
-  }
-});
-
-applyTransforms();
-</script>
+    function goBack() {
+      if (document.referrer) {
+        history.back();
+      } else {
+        window.location.href = "./";
+      }
+    }
+    window.goBack = goBack;
+  </script>
 </body>
 </html>

@@ -2,836 +2,1228 @@
 <html lang="de">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ARtHunt – v2.5 (Info-Popup, Radius-Filter, Inbox)</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous"/>
+  <title>ARtHunt – Demo</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
   <style>
-    html, body, #map { height: 100%; margin: 0; }
-    * { box-sizing: border-box; }
     :root {
-      --fg:#111827; --muted:#6b7280; --bg:#ffffff; --card:#ffffff;
-      --accent:#111827; --good:#10b981; --danger:#ef4444; --info:#2563eb; --info-fill:#93c5fd;
+      color-scheme: dark;
+      --bg: #020617;
+      --bg-elevated: #020617;
+      --card: #020617;
+      --card-soft: #020617;
+      --accent: #22c55e;
+      --accent-soft: rgba(34, 197, 94, 0.12);
+      --accent-soft2: rgba(34, 197, 94, 0.06);
+      --border-subtle: #1e293b;
+      --text: #e5e7eb;
+      --text-muted: #9ca3af;
+      --danger: #ef4444;
     }
-    .fab, .fab2 { position: fixed; top: 12px; z-index: 1000; width: 44px; height: 44px; border-radius: 999px;
-      background: var(--accent); color: #fff; display:flex; align-items:center; justify-content:center;
-      box-shadow: 0 8px 28px rgba(0,0,0,.18); cursor: pointer; user-select:none; }
-    .fab { right: 12px; } .fab2 { right: 62px; }
-    .fab span, .fab2 span { font-size: 20px; line-height: 1; }
 
-    .sheet { position: fixed; left: 12px; right: 12px; bottom: 12px; background: rgba(255,255,255,.96);
-      backdrop-filter: blur(8px); border-radius: 14px; box-shadow: 0 8px 28px rgba(0,0,0,.18);
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; overflow: hidden; z-index: 999; }
-    .sheet-header { display:flex; align-items:center; justify-content:space-between; padding:8px 10px; cursor:pointer; }
-    .pill { width: 40px; height: 5px; border-radius: 999px; background:#e5e7eb; margin: 6px auto; }
-    .title { font-weight: 700; font-size: 14px; }
-    .muted { color: var(--muted); font-size: 12px; }
-    .sheet-body { padding: 8px 10px; display:none; }
-    .sheet.open .sheet-body { display:block; max-height: 42vh; overflow:auto; }
-    .art-card { border: 1px solid #e5e7eb; border-radius: 10px; padding: 8px; background: var(--card); }
-    .btn { display:inline-block; padding: 8px 10px; border-radius: 8px; font-weight: 600; cursor: pointer; border:0; }
-    .btn-primary { background: var(--accent); color: #fff; } .btn-unlocked { background: var(--good); color: #fff; } .btn-ghost { background: #f3f4f6; color:var(--fg); }
-    .badge { display:inline-block; padding:2px 6px; font-size:11px; border-radius: 999px; background:#f3f4f6; }
-    .settings { display:flex; gap:8px; align-items:center; justify-content:flex-end; }
+    * {
+      box-sizing: border-box;
+    }
 
-    /* Unlock pulse effect */
-    .pulse-pin { width: 18px; height: 18px; border-radius: 999px; background: var(--good); border:2px solid #065f46; }
-    .pulse-ring { position:absolute; top:-16px; left:-16px; width: 50px; height: 50px; border:2px solid rgba(16,185,129,0.6);
-      border-radius: 999px; animation: ring 800ms ease-out forwards; }
-    @keyframes ring { from { transform: scale(.1); opacity: .9; } to { transform: scale(1.3); opacity: 0; } }
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overscroll-behavior: none;
+    }
 
-    .modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; z-index: 1000;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; } .modal.open { display: flex; }
-    .modal-card { background: #111; color: #fff; border-radius: 16px; padding: 16px; max-width: min(720px, 92vw); box-shadow: 0 16px 48px rgba(0,0,0,.45); position: relative; }
-    .modal-card img { max-width: 100%; border-radius: 12px; display: block; margin: 8px auto; }
-    .close { position: absolute; top: 12px; right: 12px; background: #fff; color:#111; border:0; border-radius: 8px; padding: 8px 10px; cursor:pointer; }
-    .modal-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
-    .chip { font-size:12px; background:#1f2937; padding:6px 8px; border-radius:999px; }
-    .comment { background:#0f172a; border-radius:8px; padding:6px 8px; margin-top:6px; font-size:13px; }
-    .comment-reply { margin-left:16px; opacity:.92; }
-    .comment-light { background:#fff; color:#111; border:1px solid #e5e7eb;
-      border-radius:8px; padding:6px 8px; margin-top:6px; font-size:13px; }
+    #map {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+    }
 
-    .drawer { position: fixed; top:0; right:0; bottom:0; width: min(520px, 94vw); background:#fff; z-index:1001;
-      box-shadow: -8px 0 28px rgba(0,0,0,.25); transform: translateX(100%); transition: transform .25s ease; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
-    .drawer.open { transform: translateX(0); } .drawer header { padding: 12px; display:flex; align-items:center; justify-content:space-between; border-bottom: 1px solid #e5e7eb; }
-    .drawer h2 { font-size: 16px; margin:0; }
-    .tabs { display:flex; gap:6px; padding:8px; border-bottom:1px solid #e5e7eb; }
-    .tabs button { padding:8px 10px; border-radius:8px; border:1px solid #e5e7eb; background:#fff; cursor:pointer; }
-    .tabs button.active { background:#111827; color:#fff; border-color:#111827; }
-    .panel { display:none; padding:12px; overflow:auto; height: calc(100% - 96px); }
-    .panel.active { display:block; }
-    .field { margin-bottom: 10px; } .field label { display:block; font-size:12px; color:#374151; margin-bottom: 4px; }
-    .field input, .field textarea { width:100%; padding:8px 10px; border:1px solid #e5e7eb; border-radius:8px; font-size:14px; }
-    .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
-    .preview { border:1px dashed #e5e7eb; border-radius: 10px; padding:8px; text-align:center; } .preview img { max-width:100%; border-radius:8px; }
-    .list { display:grid; gap:10px; } .item { border:1px solid #e5e7eb; padding:8px; border-radius:8px; }
-    .layer-row { display:flex; align-items:center; gap:10px; padding:8px; border:1px solid #e5e7eb; border-radius:10px; margin-bottom:8px; }
-    .legend-swatch { width:14px; height:14px; border-radius:999px; }
+    .top-bar {
+      position: fixed;
+      top: 0.5rem;
+      left: 0.5rem;
+      right: 0.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.35rem 0.6rem;
+      border-radius: 999px;
+      background: radial-gradient(
+          circle at top left,
+          rgba(34, 197, 94, 0.25),
+          transparent 55%
+        ),
+        rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(14px);
+      box-shadow: 0 18px 60px rgba(15, 23, 42, 0.75);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      z-index: 5;
+      gap: 0.6rem;
+    }
 
-    /* compacter previews */
-    #commentList .comment { max-height: 72px; overflow: hidden; }
-    #infoComments .comment { max-height: 56px; overflow:hidden; }
+    .top-bar-title {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    .top-bar-title span:first-child {
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      font-size: 0.9rem;
+    }
+
+    .top-bar-title span:last-child {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+
+    .top-bar-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.75rem;
+    }
+
+    .switch {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      cursor: pointer;
+      user-select: none;
+    }
+    .switch input {
+      appearance: none;
+      width: 32px;
+      height: 18px;
+      border-radius: 999px;
+      background: #020617;
+      border: 1px solid #1f2937;
+      position: relative;
+      outline: none;
+      transition: all 0.18s ease-out;
+    }
+    .switch input::before {
+      content: "";
+      position: absolute;
+      top: 1px;
+      left: 1px;
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      background: #6b7280;
+      transition: all 0.18s ease-out;
+      box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.2);
+    }
+    .switch input:checked {
+      background: rgba(34, 197, 94, 0.15);
+      border-color: #22c55e;
+    }
+    .switch input:checked::before {
+      transform: translateX(12px);
+      background: #22c55e;
+      box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.4);
+    }
+
+    .switch span {
+      color: var(--text-muted);
+    }
+
+    .fab {
+      position: fixed;
+      right: 0.7rem;
+      width: 42px;
+      height: 42px;
+      border-radius: 999px;
+      border: none;
+      background: radial-gradient(
+          circle at top left,
+          rgba(34, 197, 94, 0.3),
+          transparent 55%
+        ),
+        rgba(15, 23, 42, 0.97);
+      box-shadow: 0 18px 45px rgba(15, 23, 42, 0.9);
+      backdrop-filter: blur(16px);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text);
+      cursor: pointer;
+      z-index: 5;
+    }
+    .fab svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .fab-main {
+      bottom: 4.4rem;
+    }
+    .fab-center {
+      bottom: 1.3rem;
+    }
+
+    .drawer {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 0.75rem 0.75rem calc(env(safe-area-inset-bottom, 0) + 0.7rem);
+      background: linear-gradient(to top, #020617, rgba(15, 23, 42, 0.95));
+      backdrop-filter: blur(18px);
+      border-top-left-radius: 1.5rem;
+      border-top-right-radius: 1.5rem;
+      box-shadow: 0 -18px 60px rgba(15, 23, 42, 0.95);
+      z-index: 4;
+      max-height: 58vh;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      border-top: 1px solid rgba(148, 163, 184, 0.18);
+    }
+
+    .drawer-handle {
+      align-self: center;
+      width: 42px;
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.4);
+      margin-bottom: 0.2rem;
+    }
+
+    .drawer-title {
+      font-size: 0.85rem;
+      font-weight: 500;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+
+    .drawer-title span:last-child {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .list {
+      margin-top: 0.25rem;
+      overflow-y: auto;
+      padding-right: 0.1rem;
+    }
+
+    .card {
+      background: radial-gradient(
+          circle at top left,
+          rgba(34, 197, 94, 0.16),
+          transparent 60%
+        ),
+        #020617;
+      border-radius: 1rem;
+      padding: 0.7rem 0.75rem 0.7rem;
+      border: 1px solid rgba(55, 65, 81, 0.8);
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.9);
+      margin-bottom: 0.5rem;
+    }
+
+    .card-header {
+      font-size: 0.9rem;
+      font-weight: 500;
+      margin-bottom: 0.25rem;
+    }
+    .card-sub {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 0.25rem;
+    }
+
+    .card-meta {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.7rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 999px;
+      border: 1px solid rgba(75, 85, 99, 0.9);
+      background: rgba(15, 23, 42, 0.85);
+    }
+
+    .pill.success {
+      border-color: rgba(34, 197, 94, 0.8);
+      background: rgba(22, 163, 74, 0.12);
+      color: #bbf7d0;
+    }
+    .pill.locked {
+      border-color: rgba(248, 250, 252, 0.06);
+      background: rgba(15, 23, 42, 0.95);
+    }
+
+    .btn {
+      border-radius: 999px;
+      border: none;
+      font-size: 0.8rem;
+      padding: 0.55rem 0.9rem;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .btn-primary {
+      width: 100%;
+      margin-top: 0.45rem;
+      background: linear-gradient(
+        to right,
+        #22c55e,
+        #4ade80
+      );
+      color: #022c22;
+      box-shadow: 0 18px 50px rgba(34, 197, 94, 0.6);
+    }
+    .btn-outline {
+      width: 100%;
+      margin-top: 0.45rem;
+      background: transparent;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      color: var(--text);
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(
+          circle at top left,
+          rgba(34, 197, 94, 0.25),
+          transparent 60%
+        ),
+        rgba(15, 23, 42, 0.96);
+      backdrop-filter: blur(18px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 0.6rem;
+      z-index: 10;
+    }
+
+    .modal {
+      width: 100%;
+      max-width: 480px;
+      max-height: calc(100vh - 1.2rem);
+      background: #020617;
+      border-radius: 1.5rem;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      box-shadow: 0 22px 70px rgba(15, 23, 42, 0.98);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .modal-header {
+      padding: 0.8rem 0.95rem 0.3rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+
+    .modal-header-titles {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+    .modal-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+    .modal-artist {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .modal-close {
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(55, 65, 81, 0.9);
+      width: 32px;
+      height: 32px;
+      font-size: 0.78rem;
+      cursor: pointer;
+      color: var(--text-muted);
+    }
+
+    .modal-body {
+      padding: 0.2rem 0.95rem 0.85rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+      min-height: 0;
+    }
+
+    /* WICHTIG: Medienbereich begrenzen, damit Buttons erreichbar bleiben */
+    .modal-media {
+      border-radius: 1rem;
+      overflow: hidden;
+      max-height: 60vh;
+      overflow-y: auto;
+      border: 1px solid rgba(30, 64, 175, 0.5);
+      background: radial-gradient(
+          circle at top left,
+          rgba(59, 130, 246, 0.25),
+          transparent 60%
+        ),
+        #020617;
+    }
+    .modal-media img {
+      width: 100%;
+      height: auto;
+      display: block;
+      object-fit: contain;
+    }
+
+    .modal-description {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .modal-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: 0.2rem;
+    }
+
+    .btn-ghost {
+      border-radius: 999px;
+      border: 1px solid rgba(55, 65, 81, 0.95);
+      background: rgba(15, 23, 42, 0.95);
+      color: var(--text);
+      padding: 0.25rem 0.6rem;
+      font-size: 0.8rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      cursor: pointer;
+    }
+
+    .btn-ghost-primary {
+      border-color: rgba(34, 197, 94, 0.9);
+      background: rgba(22, 163, 74, 0.12);
+      color: #bbf7d0;
+    }
+
+    .like-active {
+      color: #fecaca;
+      border-color: rgba(248, 113, 113, 0.85);
+      background: rgba(30, 64, 175, 0.08);
+    }
+
+    .comments-preview {
+      margin-top: 0.35rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      max-height: 90px;
+      overflow-y: auto;
+    }
+
+    .comment-chip {
+      border-radius: 999px;
+      padding: 0.18rem 0.55rem;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(55, 65, 81, 0.95);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+    }
+
+    .comment-input-row {
+      margin-top: 0.35rem;
+      display: flex;
+      gap: 0.3rem;
+    }
+    .comment-input-row input {
+      flex: 1;
+      border-radius: 999px;
+      border: 1px solid rgba(55, 65, 81, 0.9);
+      background: rgba(15, 23, 42, 0.95);
+      color: var(--text);
+      padding: 0.4rem 0.7rem;
+      font-size: 0.8rem;
+      outline: none;
+    }
+    .comment-input-row button {
+      padding-inline: 0.8rem;
+      background: linear-gradient(
+        to right,
+        #22c55e,
+        #4ade80
+      );
+      color: #022c22;
+      border-radius: 999px;
+      border: none;
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .comments-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(16px);
+      display: none;
+      flex-direction: column;
+      padding: 0.8rem;
+      z-index: 11;
+    }
+
+    .comments-card {
+      max-width: 480px;
+      margin: 0 auto;
+      border-radius: 1.25rem;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      background: #020617;
+      padding: 0.8rem 0.9rem 0.8rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      max-height: calc(100vh - 1.6rem);
+    }
+
+    .comments-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+
+    .comments-list {
+      margin-top: 0.2rem;
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .comment-full {
+      border-radius: 0.85rem;
+      background: #020617;
+      border: 1px solid rgba(55, 65, 81, 0.9);
+      font-size: 0.8rem;
+      padding: 0.35rem 0.55rem;
+    }
+
+    .comment-full span {
+      display: block;
+    }
+
+    .comment-full span.meta {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-bottom: 0.1rem;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: calc(env(safe-area-inset-bottom, 0) + 4.2rem);
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.96);
+      border-radius: 999px;
+      border: 1px solid rgba(34, 197, 94, 0.7);
+      padding: 0.4rem 0.8rem;
+      font-size: 0.8rem;
+      color: #bbf7d0;
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.9);
+      z-index: 6;
+      display: none;
+    }
+
+    @media (min-width: 768px) {
+      .drawer {
+        max-width: 420px;
+        margin: 0 auto;
+        left: 0;
+        right: 0;
+      }
+      .top-bar {
+        max-width: 420px;
+        margin: 0 auto;
+        left: 0;
+        right: 0;
+      }
+      .fab-main,
+      .fab-center {
+        right: calc(50% - 210px + 0.7rem);
+      }
+      .toast {
+        left: 50%;
+      }
+    }
   </style>
 </head>
 <body>
   <div id="map"></div>
 
-  <div class="fab2" id="menuBtn" title="Menü & Creator"><span>☰</span></div>
-  <div class="fab" id="centerBtn" title="Auf mich zentrieren"><span>◎</span></div>
-
-  <div class="sheet" id="sheet">
-    <div class="pill"></div>
-    <div class="sheet-header" id="toggleSheet">
-      <div>
-        <div class="title">ARtHunt</div>
-        <div class="muted" id="status">Standort: wird ermittelt…</div>
-      </div>
-      <div class="settings">
-        <label class="muted" style="display:flex;align-items:center;gap:6px;">
-          <input type="checkbox" id="autoOpen" checked /> Auto-Öffnen vor Ort
-        </label>
-      </div>
+  <div class="top-bar">
+    <div class="top-bar-title">
+      <span>ARtHunt – Demo</span>
+      <span id="locationStatus">Standort: unbekannt</span>
     </div>
-    <div class="sheet-body">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <div class="muted">Gefunden:</div><div><span class="badge" id="progress">0 / 0</span></div>
-      </div>
-      <div id="art-list" style="margin-top:8px; display:grid; gap:8px;"></div>
+    <div class="top-bar-controls">
+      <label class="switch">
+        <input type="checkbox" id="chkAutoOpen" />
+        <span>Auto-Öffnen vor Ort</span>
+      </label>
     </div>
   </div>
 
-  <aside class="drawer" id="drawer">
-    <header>
-      <h2>Menü</h2>
-      <button class="btn btn-ghost" id="closeDrawer">Schließen</button>
-    </header>
-    <div class="tabs">
-      <button class="tab-btn active" data-tab="create">＋ Create</button>
-      <button class="tab-btn" data-tab="layers">🎚️ Layers</button>
-      <button class="tab-btn" data-tab="activity">💬 Aktivität</button>
-      <button class="tab-btn" data-tab="settings">⚙️ Einstellungen</button>
+  <button class="fab fab-main" id="btnMenu" title="Menü">
+    <svg viewBox="0 0 24 24" fill="none">
+      <path
+        d="M5 7h14M5 12h14M5 17h10"
+        stroke="#e5e7eb"
+        stroke-width="1.8"
+        stroke-linecap="round"
+      />
+    </svg>
+  </button>
+  <button class="fab fab-center" id="btnCenter" title="Auf mich zentrieren">
+    <svg viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="2.5" stroke="#e5e7eb" stroke-width="1.6" />
+      <path
+        d="M12 4v2.3M12 17.7V20M4 12h2.3M17.7 12H20"
+        stroke="#e5e7eb"
+        stroke-width="1.6"
+        stroke-linecap="round"
+      />
+      <circle
+        cx="12"
+        cy="12"
+        r="7"
+        stroke="#e5e7eb"
+        stroke-width="1.3"
+        stroke-opacity="0.45"
+      />
+    </svg>
+  </button>
+
+  <div class="drawer" id="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title">
+      <span>ARtHunt – In deiner Nähe</span>
+      <span id="foundSummary">0 Spots</span>
     </div>
+    <div class="list" id="list"></div>
+  </div>
 
-    <!-- Create -->
-    <section class="panel active" id="panel-create">
-      <h3 style="margin:6px 0 10px 0;">Neues Werk vor Ort erfassen</h3>
-      <div class="field grid2">
-        <div><label>Titel</label><input id="fTitle" placeholder="Titel des Werks" /></div>
-        <div><label>Künstler</label><input id="fArtist" placeholder="Name oder Kollektiv" /></div>
+  <div class="modal-backdrop" id="modalBackdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-header-titles">
+          <div class="modal-title" id="modalTitle"></div>
+          <div class="modal-artist" id="modalArtist"></div>
+        </div>
+        <button class="modal-close" id="modalClose">Schließen</button>
       </div>
-      <div class="field grid2">
-        <div><label>Radius (m)</label><input id="fRadius" type="number" min="10" max="300" value="60" /></div>
-        <div><label>Koordinaten</label><input id="fCoords" placeholder="Lat, Lon" /></div>
-      </div>
-      <div class="field"><label>Beschreibung</label><textarea id="fDesc" rows="3" placeholder="Kurze Beschreibung…"></textarea></div>
-      <div class="field"><label>Bild (lokal in Base64)</label><input id="fImage" type="file" accept="image/*" /></div>
-      <div class="field"><label>Externer Link (Spotify, YouTube, SoundCloud, Website …)</label><input id="fMediaLink" placeholder="https://…"/></div>
-      <div class="preview" id="imgPreview">Noch kein Bild ausgewählt.</div>
-      <div style="display:flex; gap:8px; margin-top:10px;">
-        <button class="btn btn-primary" id="btnUseHere">Meine aktuelle Position setzen</button>
-        <button class="btn btn-unlocked" id="btnAdd">Entwurf speichern</button>
-      </div>
-      <hr style="margin:14px 0;">
-      <h3 style="margin:6px 0 10px 0;">Meine Entwürfe (lokal)</h3>
-      <div class="list" id="draftList"></div>
-      <div style="display:flex; gap:8px; margin-top:10px;">
-        <button class="btn btn-primary" id="btnExport">Als JSON exportieren</button>
-        <button class="btn btn-ghost" id="btnClear">Entwürfe löschen</button>
-      </div>
-      <p class="muted" style="margin-top:8px;">
-        Hinweis: Entwürfe werden nur lokal gespeichert. Lade die exportierte <code>submissions.json</code> ins Repo hoch
-        oder merge sie in <code>artworks.json</code>. Zusätzlich lädt die App optional eine serverseitige <code>submissions.json</code> als „blauen Layer“.
-      </p>
-    </section>
+      <div class="modal-body">
+        <div class="modal-media">
+          <img id="modalImage" src="" alt="" />
+        </div>
+        <div class="modal-description" id="modalDescription"></div>
 
-    <!-- Layers -->
-    <section class="panel" id="panel-layers">
-      <h3 style="margin:6px 0 10px 0;">Layers & Legende</h3>
-      <div class="layer-row">
-        <div class="legend-swatch" style="background: var(--danger);"></div>
-        <label style="flex:1">Live – verschlossen</label>
-        <input type="checkbox" id="toggleLocked" checked />
-      </div>
-      <div class="layer-row">
-        <div class="legend-swatch" style="background: var(--good);"></div>
-        <label style="flex:1">Live – freigeschaltet</label>
-        <input type="checkbox" id="toggleUnlocked" checked />
-      </div>
-      <div class="layer-row">
-        <div class="legend-swatch" style="background: var(--info-fill);"></div>
-        <label style="flex:1">Entwürfe – lokal</label>
-        <input type="checkbox" id="toggleDraftsLocal" checked />
-      </div>
-      <div class="layer-row">
-        <div class="legend-swatch" style="background: #60a5fa;"></div>
-        <label style="flex:1">Entwürfe – server (submissions.json)</label>
-        <input type="checkbox" id="toggleDraftsServer" checked />
-      </div>
-      <div class="layer-row" style="flex-direction:column; align-items:stretch">
-        <label><b>Umkreis für die Liste</b> (1–200 km): <span id="radiusLabel">5 km</span></label>
-        <input type="range" id="listRadius" min="1" max="200" value="5" />
-        <div class="muted" style="font-size:12px">Gilt nur für die Liste. Karte bleibt unverändert.</div>
-      </div>
-    </section>
+        <div class="modal-actions">
+          <button class="btn-ghost" id="btnLike">
+            ❤️ <span id="likeCount">0</span>
+          </button>
+          <button class="btn-ghost" id="btnShare">↗️ Teilen</button>
+          <button class="btn-ghost" id="btnAllComments">
+            🗂️ Alle Kommentare
+          </button>
+          <button class="btn-ghost" id="btnAr" style="display: none">
+            🕶️ In AR ansehen
+          </button>
+          <button class="btn-ghost" id="btnArGeo" style="display: none">
+            📍 Am Ort in AR
+          </button>
+        </div>
 
-    <!-- Activity -->
-    <section class="panel" id="panel-activity">
-      <h3 style="margin:6px 0 10px 0;">Aktivität (lokal)</h3>
-      <div id="activity"></div>
-      <h4 style="margin:12px 0 6px;">Kommentare zu meinen Werken</h4>
-      <div id="inbox" class="list"></div>
-      <p class="muted" style="margin-top:8px;">Später mit Login/Cloud – aktuell nur auf diesem Gerät gespeichert.</p>
-    </section>
+        <div class="comments-preview" id="commentsPreview"></div>
 
-    <!-- Settings -->
-    <section class="panel" id="panel-settings">
-      <h3 style="margin:6px 0 10px 0;">Einstellungen</h3>
-      <div style="display:flex; gap:8px; margin-top:10px;">
-        <button class="btn btn-ghost" id="btnInstallPWA">Als App installieren</button>
-        <button class="btn btn-ghost" id="btnClearLocal">Lokale Daten löschen</button>
-      </div>
-    </section>
-  </aside>
-
-  <!-- Big artwork modal -->
-  <div class="modal" id="modal">
-    <div class="modal-card">
-      <button class="close" onclick="closeModal()">Schließen</button>
-      <div style="font-weight:700;margin-bottom:4px;" id="modal-title"></div>
-      <div style="opacity:.8;margin-bottom:6px;" id="modal-artist"></div>
-      <img id="modal-img" alt="Artwork" onerror="this.onerror=null;this.src='https://picsum.photos/seed/arthunt/1200/800';" />
-      <div id="modal-desc" style="opacity:.9;margin-top:8px;"></div>
- <div class="modal-actions">
-  <button class="btn btn-ghost" id="btnLike">❤️ <span id="likeCount">0</span></button>
-  <button class="btn btn-ghost" id="btnShare">↗️ Teilen</button>
-
-  <!-- NEU: Play-Button für externe Medien (Spotify, YouTube usw.) -->
-  <button class="btn btn-ghost" id="btnPlay" style="display:none">▶️ Abspielen</button>
-
-  <button class="btn btn-ghost" id="btnAllCommentsBig">🗂️ Alle</button>
-  <button class="btn btn-ghost" id="btnAr" style="display:none">🕶️ In AR ansehen</button>
-  <button class="btn btn-ghost" id="btnArGeo" style="display:none">📍 Am Ort in AR</button>
-</div>
-      <div id="commentList"></div>
-      <div style="display:flex; gap:6px; margin-top:8px;">
-        <input id="commentInput" placeholder="Kommentar hinzufügen…" style="flex:1; padding:8px 10px; border-radius:8px; border:1px solid #374151; background:#0b1220; color:#fff;" />
-        <button class="btn btn-unlocked" id="commentSend">Senden</button>
-      </div>
-      <div style="margin-top:8px;">
-        <button class="btn btn-ghost" id="btnClaim">Als Creator verwalten</button>
-        <span id="ownedBadge" class="chip" style="display:none; margin-left:6px;">👑 Du verwaltest dieses Werk</span>
+        <div class="comment-input-row">
+          <input
+            type="text"
+            id="commentInput"
+            placeholder="Kommentar hinzufügen..."
+          />
+          <button id="btnSendComment">Senden</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Full comments modal -->
-  <div class="modal" id="commentsModal">
-    <div class="modal-card" style="max-width:min(560px,92vw);">
-      <button class="close" onclick="document.getElementById('commentsModal').classList.remove('open')">Schließen</button>
-      <div style="font-weight:700;margin-bottom:6px;">Alle Kommentare</div>
-      <div id="allCommentsList" style="max-height:60vh; overflow:auto;"></div>
+  <div class="comments-overlay" id="commentsOverlay">
+    <div class="comments-card">
+      <div class="comments-card-header">
+        <span id="commentsOverlayTitle">Kommentare</span>
+        <button class="modal-close" id="btnCloseComments">
+          Schließen
+        </button>
+      </div>
+      <div class="comments-list" id="commentsList"></div>
     </div>
   </div>
 
-  <!-- Locked info modal -->
-  <div class="modal" id="infoModal">
-    <div class="modal-card" style="max-width:min(560px,92vw);">
-      <button class="close" onclick="document.getElementById('infoModal').classList.remove('open')">Schließen</button>
-      <div id="infoTitle" style="font-weight:700;margin-bottom:2px;"></div>
-      <div id="infoArtist" style="opacity:.8;margin-bottom:6px;"></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0;">
-        <span class="chip" id="infoDist"></span>
-        <span class="chip" id="infoNeed"></span>
-        <span class="chip">❤️ <span id="infoLikes">0</span></span>
-      </div>
-      <div id="infoComments"></div>
-      <div class="modal-actions" style="margin-top:10px;">
-        <button class="btn btn-ghost" id="btnAllComments">Alle Kommentare</button>
-        <button class="btn btn-primary" id="btnRoute">Route</button>
-        <button class="btn btn-ghost" id="btnClaimInfo">Zu meinen Werken</button>
-      </div>
-      <p class="muted" style="margin-top:6px;">Du bist außerhalb des Radius. Auto-Öffnen vor Ort ist aktiv, wenn du es oben eingeschaltet hast.</p>
-    </div>
-  </div>
+  <div class="toast" id="toast"></div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
   <script>
-    const DEFAULT_CENTER = [53.707, 9.996];
-    const DEFAULT_ZOOM = 15;
-    const STORAGE_UNLOCK = 'arthunt_unlocked_v2_5';
-    const STORAGE_DRAFTS = 'arthunt_drafts_v2_5';
-    const STORAGE_LIKES = 'arthunt_likes_v2_5';
-    const STORAGE_COMMENTS = 'arthunt_comments_v2_5';
-    const STORAGE_LIST_RADIUS = 'arthunt_list_radius_km_v2_5';
-    const STORAGE_OWNED = 'arthunt_owned_ids_v2_5';
+    // --- Konfiguration ---
+    const STORAGE_UNLOCKED = "arthunt_unlocked_v1";
+    const STORAGE_LIKES = "arthunt_likes_v1";
+    const STORAGE_COMMENTS = "arthunt_comments_v1";
+    const STORAGE_AUTOOPEN = "arthunt_autoopen_v1";
 
-  const DEFAULT_ARTWORKS = [
-  {
-    id: 'nms',
-    title: 'Norderstedt Mitte Rose',
-    artist: 'Studio X',
-    lat: 53.7067,
-    lon: 9.9959,
-    radius: 60,
-    image: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=1200&auto=format&fit=crop',
-    description: 'Black stencil grenade with a blooming red rose at Norderstedt Mitte.',
-    ar: {
-      glb: 'https://modelviewer.dev/shared-assets/models/Astronaut.glb',
-      usdz: 'https://modelviewer.dev/shared-assets/models/Astronaut.usdz',
-      scale: 100,
-      rot: 0
-    }
-  },
-  {
-    id:'stadtpark',
-    title:'Heartbeat im Stadtpark',
-    artist:'A. Miro',
-    lat:53.7140,
-    lon:10.0060,
-    radius:80,
-    image:'https://images.unsplash.com/photo-1496317556649-f930d733eea6?q=80&w=1200&auto=format&fit=crop',
-    description:'City skyline morphing into a red heartbeat line near dem See im Stadtpark.'
-  },
-  {
-    id:'moorbek',
-    title:'Red Umbrella Moorbekpassage',
-    artist:'Mira K.',
-    lat:53.7080,
-    lon:9.9915,
-    radius:70,
-    image:'https://images.unsplash.com/photo-1491955478222-69ae25414368?q=80&w=1200&auto=format&fit=crop',
-    description:'Silhouette mit rotem Schirm; rote Tropfen formen Herzen bei der Moorbekpassage.'
-  }
-];
+    const map = L.map("map", {
+      zoomControl: false,
+      attributionControl: false,
+    });
 
-    // State
-    let artworks = [];
-    const unlocked = JSON.parse(localStorage.getItem(STORAGE_UNLOCK) || '{}');
-    let draftsLocal = JSON.parse(localStorage.getItem(STORAGE_DRAFTS) || '[]');
-    let draftsServer = []; // submissions.json from server (optional)
-    const likes = JSON.parse(localStorage.getItem(STORAGE_LIKES) || '{}'); // {id: count}
-    const comments = JSON.parse(localStorage.getItem(STORAGE_COMMENTS) || '{}'); // {id: [{text, at}]}
-    let LIST_RADIUS_KM = parseInt(localStorage.getItem(STORAGE_LIST_RADIUS) || '5', 10);
-    let ownedIds = JSON.parse(localStorage.getItem(STORAGE_OWNED) || '[]');
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+    }).addTo(map);
 
-    function saveUnlocks(){ localStorage.setItem(STORAGE_UNLOCK, JSON.stringify(unlocked)); }
-    function saveDrafts(){ localStorage.setItem(STORAGE_DRAFTS, JSON.stringify(draftsLocal)); }
-    function saveLikes(){ localStorage.setItem(STORAGE_LIKES, JSON.stringify(likes)); }
-    function saveComments(){ localStorage.setItem(STORAGE_COMMENTS, JSON.stringify(comments)); }
-    function saveOwned(){ localStorage.setItem(STORAGE_OWNED, JSON.stringify(ownedIds)); }
-
-    function toRad(d){return d*Math.PI/180;}
-    function haversine(a,b){
-      const R=6371000;
-      const dLat=toRad(b.lat-a.lat), dLon=toRad(b.lon-a.lon);
-      const la1=toRad(a.lat), la2=toRad(b.lat);
-      const h=Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2;
-      return 2*R*Math.asin(Math.sqrt(h));
-    }
-
-    // Map
-    const map = L.map('map', { zoomControl: true }).setView(DEFAULT_CENTER, DEFAULT_ZOOM);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
     let userMarker = null;
 
-    // Layers
-    const liveLockedLayer = L.layerGroup().addTo(map);
-    const liveUnlockedLayer = L.layerGroup().addTo(map);
-    const draftLocalLayer = L.layerGroup().addTo(map);
-    const draftServerLayer = L.layerGroup().addTo(map);
+    /** @type {{id:string,title:string,artist:string,lat:number,lon:number,radius:number,image:string,description:string,ar?:any,mediaLink?:string}[]} */
+    let artworks = [];
+    const markers = new Map();
 
-    // UI refs
-    const statusEl = document.getElementById('status');
-    const progressEl = document.getElementById('progress');
-    const autoOpenEl = document.getElementById('autoOpen');
-    const list = document.getElementById('art-list');
-    const radiusInput = document.getElementById('listRadius');
-    const radiusLabel = document.getElementById('radiusLabel');
+    let userLocation = null;
+    let unlocked = {};
+    let likes = {};
+    let comments = {};
+    let autoOpen = true;
 
-    document.getElementById('centerBtn').addEventListener('click', ()=>{
-      if(userMarker){ map.setView(userMarker.getLatLng(), 16); } else alert('Standort noch nicht aktiv.');
+    const listEl = document.getElementById("list");
+    const foundSummaryEl = document.getElementById("foundSummary");
+    const locationStatusEl = document.getElementById("locationStatus");
+    const chkAutoOpen = document.getElementById("chkAutoOpen");
+    const btnCenter = document.getElementById("btnCenter");
+
+    const modalBackdrop = document.getElementById("modalBackdrop");
+    const modalClose = document.getElementById("modalClose");
+    const modalTitle = document.getElementById("modalTitle");
+    const modalArtist = document.getElementById("modalArtist");
+    const modalImage = document.getElementById("modalImage");
+    const modalDescription = document.getElementById("modalDescription");
+    const btnLike = document.getElementById("btnLike");
+    const likeCountEl = document.getElementById("likeCount");
+    const btnShare = document.getElementById("btnShare");
+    const btnAllComments = document.getElementById("btnAllComments");
+    const btnAr = document.getElementById("btnAr");
+    const btnArGeo = document.getElementById("btnArGeo");
+    const commentsPreview = document.getElementById("commentsPreview");
+    const commentInput = document.getElementById("commentInput");
+    const btnSendComment = document.getElementById("btnSendComment");
+
+    const commentsOverlay = document.getElementById("commentsOverlay");
+    const commentsOverlayTitle = document.getElementById(
+      "commentsOverlayTitle"
+    );
+    const commentsList = document.getElementById("commentsList");
+    const btnCloseComments = document.getElementById("btnCloseComments");
+
+    const toastEl = document.getElementById("toast");
+
+    function showToast(text, ms = 2200) {
+      toastEl.textContent = text;
+      toastEl.style.display = "block";
+      setTimeout(() => {
+        toastEl.style.display = "none";
+      }, ms);
+    }
+
+    function loadStorage() {
+      try {
+        unlocked = JSON.parse(localStorage.getItem(STORAGE_UNLOCKED)) || {};
+      } catch {
+        unlocked = {};
+      }
+      try {
+        likes = JSON.parse(localStorage.getItem(STORAGE_LIKES)) || {};
+      } catch {
+        likes = {};
+      }
+      try {
+        comments = JSON.parse(localStorage.getItem(STORAGE_COMMENTS)) || {};
+      } catch {
+        comments = {};
+      }
+      try {
+        autoOpen =
+          JSON.parse(localStorage.getItem(STORAGE_AUTOOPEN)) !== false;
+      } catch {
+        autoOpen = true;
+      }
+      chkAutoOpen.checked = autoOpen;
+    }
+
+    function saveUnlocked() {
+      localStorage.setItem(STORAGE_UNLOCKED, JSON.stringify(unlocked));
+    }
+    function saveLikes() {
+      localStorage.setItem(STORAGE_LIKES, JSON.stringify(likes));
+    }
+    function saveComments() {
+      localStorage.setItem(STORAGE_COMMENTS, JSON.stringify(comments));
+    }
+    function saveAutoOpen() {
+      localStorage.setItem(STORAGE_AUTOOPEN, JSON.stringify(autoOpen));
+    }
+
+    chkAutoOpen.addEventListener("change", () => {
+      autoOpen = chkAutoOpen.checked;
+      saveAutoOpen();
     });
 
-    // Sheet
-    const sheet = document.getElementById('sheet');
-    document.getElementById('toggleSheet').addEventListener('click', ()=> sheet.classList.toggle('open'));
-
-    // Drawer + Tabs
-    const drawer = document.getElementById('drawer');
-    document.getElementById('menuBtn').addEventListener('click', ()=> drawer.classList.add('open'));
-    document.getElementById('closeDrawer').addEventListener('click', ()=> drawer.classList.remove('open'));
-    document.querySelectorAll('.tab-btn').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-        btn.classList.add('active');
-        document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
-        document.getElementById('panel-'+btn.dataset.tab).classList.add('active');
-      });
-    });
-
-    // Layers toggles
-    const toggleLocked = document.getElementById('toggleLocked');
-    const toggleUnlocked = document.getElementById('toggleUnlocked');
-    const toggleDraftsLocal = document.getElementById('toggleDraftsLocal');
-    const toggleDraftsServer = document.getElementById('toggleDraftsServer');
-    function applyLayerToggles(){
-      if(toggleLocked.checked) map.addLayer(liveLockedLayer); else map.removeLayer(liveLockedLayer);
-      if(toggleUnlocked.checked) map.addLayer(liveUnlockedLayer); else map.removeLayer(liveUnlockedLayer);
-      if(toggleDraftsLocal.checked) map.addLayer(draftLocalLayer); else map.removeLayer(draftLocalLayer);
-      if(toggleDraftsServer.checked) map.addLayer(draftServerLayer); else map.removeLayer(draftServerLayer);
-    }
-    [toggleLocked, toggleUnlocked, toggleDraftsLocal, toggleDraftsServer].forEach(el=> el.addEventListener('change', applyLayerToggles));
-
-    // Radius UI
-    if (radiusInput && radiusLabel) {
-      radiusInput.value = LIST_RADIUS_KM;
-      radiusLabel.textContent = LIST_RADIUS_KM + ' km';
-      radiusInput.addEventListener('input', () => {
-        LIST_RADIUS_KM = parseInt(radiusInput.value, 10);
-        radiusLabel.textContent = LIST_RADIUS_KM + ' km';
-        localStorage.setItem(STORAGE_LIST_RADIUS, String(LIST_RADIUS_KM));
-        if (userMarker) {
-          const p = userMarker.getLatLng();
-          renderList({ lat: p.lat, lng: p.lng });
-        } else {
-          renderList(null);
-        }
-      });
+    function haversine(lat1, lon1, lat2, lon2) {
+      const R = 6371000;
+      const toRad = (v) => (v * Math.PI) / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) *
+          Math.cos(toRad(lat2)) *
+          Math.sin(dLon / 2) *
+          Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
     }
 
-    function renderList(userLatLng){
-      list.innerHTML = '';
-      // sort by distance if we know it
-      const arr = artworks.slice().sort((a,b) => {
-        if (!userLatLng) return 0;
-        const da = haversine({lat:userLatLng.lat, lon:userLatLng.lng}, {lat:a.lat, lon:a.lon});
-        const db = haversine({lat:userLatLng.lat, lon:userLatLng.lng}, {lat:b.lat, lon:b.lon});
-        return da - db;
-      });
-
-      arr.forEach(a=>{
-        const d = (userLatLng ? Math.round(haversine({lat:userLatLng.lat, lon:userLatLng.lng}, {lat:a.lat, lon:a.lon})) : null);
-        // list filter by chosen radius
-        if (userLatLng && d > LIST_RADIUS_KM * 1000) return;
-
-        const isUnlocked = !!unlocked[a.id];
-        const card = document.createElement('div');
-        card.className = 'art-card';
-        card.innerHTML = `
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-            <div><div style="font-weight:700">${a.title}</div><div style="font-size:12px;color:#666">${a.artist}</div></div>
-            <span class="badge">${isUnlocked ? 'Freigeschaltet' : 'Verschlossen'}</span>
-          </div>
-          <div style="font-size:12px;margin-top:4px">Radius: ${a.radius} m</div>
-          <div style="font-size:12px">Entfernung: ${d==null ? '–' : d+' m'}</div>
-          <button class="btn ${isUnlocked ? 'btn-unlocked' : 'btn-primary'}" style="margin-top:6px;width:100%">
-            ${isUnlocked ? 'Ansehen' : 'Vor Ort freischalten'}
-          </button>`;
-        list.appendChild(card);
-        card.querySelector('button').addEventListener('click', ()=>{
-          if(isUnlocked) openModal(a); else tryUnlock(a, userLatLng);
-        });
-      });
-
-      progressEl.textContent = `${Object.keys(unlocked).length} / ${artworks.length}`;
+    function formatDistance(m) {
+      if (m < 1000) return `${m.toFixed(0)} m`;
+      return `${(m / 1000).toFixed(1)} km`;
     }
 
-    function wireMarkers(){
-      liveLockedLayer.clearLayers(); liveUnlockedLayer.clearLayers();
-      artworks.forEach(a=>{
-        const isUnlocked = !!unlocked[a.id];
-        const layer = isUnlocked ? liveUnlockedLayer : liveLockedLayer;
-        const m = L.circleMarker([a.lat, a.lon], {
-          radius: 7, color: '#111', weight: 2, fillColor: isUnlocked ? getComputedStyle(document.documentElement).getPropertyValue('--good') : getComputedStyle(document.documentElement).getPropertyValue('--danger'),
-          fillOpacity: 1
-        }).addTo(layer);
-        m.on('click', ()=>{
-          if(isUnlocked) openModal(a);
-          else {
-            let dist = null;
-            if (userMarker) { const p = userMarker.getLatLng(); dist = Math.round(haversine({lat:p.lat, lon:p.lng}, {lat:a.lat, lon:a.lon})); }
-            openLockedInfo(a, dist);
+    async function loadArtworks() {
+      try {
+        const res = await fetch("artworks.json", { cache: "no-cache" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        artworks = Array.isArray(data) ? data : [];
+      } catch (e) {
+        console.error("Fehler beim Laden der artworks.json", e);
+        artworks = [];
+      }
+    }
+
+    function initMap() {
+      if (artworks.length) {
+        const first = artworks[0];
+        map.setView([first.lat, first.lon], 14);
+      } else {
+        map.setView([53.7, 9.98], 14);
+      }
+
+      artworks.forEach((a) => {
+        const marker = L.circleMarker([a.lat, a.lon], {
+          radius: 7,
+          color: "#f97316",
+          fillColor: "#f97316",
+          fillOpacity: 0.9,
+          weight: 2,
+        }).addTo(map);
+        marker.on("click", () => openModal(a));
+        markers.set(a.id, marker);
+      });
+    }
+
+    function updateUserLocation(pos) {
+      userLocation = {
+        lat: pos.coords.latitude,
+        lon: pos.coords.longitude,
+        accuracy: pos.coords.accuracy,
+      };
+
+      locationStatusEl.textContent = `Standort aktiv – ± ${Math.round(
+        userLocation.accuracy
+      )} m`;
+
+      if (!userMarker) {
+        userMarker = L.circleMarker(
+          [userLocation.lat, userLocation.lon],
+          {
+            radius: 5,
+            color: "#22c55e",
+            fillColor: "#22c55e",
+            fillOpacity: 0.9,
+            weight: 2,
           }
-        });
-        a._marker = m;
-      });
-      applyLayerToggles();
-    }
-
-    function renderDraftMarkers(){
-      draftLocalLayer.clearLayers();
-      draftsLocal.forEach(d=>{
-        const m = L.circleMarker([d.lat, d.lon], { radius: 7, color: '#2563eb', weight: 2, fillColor: '#93c5fd', fillOpacity: 1 }).addTo(draftLocalLayer);
-        m.bindTooltip('Entwurf (lokal): ' + d.title);
-        m.on('click', ()=> openModal({ id:d.id, title:d.title, artist:d.artist, image:d.image, description:d.description, mediaLink:d.mediaLink }));
-      });
-      draftServerLayer.clearLayers();
-      draftsServer.forEach(d=>{
-        const m = L.circleMarker([d.lat, d.lon], { radius: 7, color: '#1d4ed8', weight: 2, fillColor: '#60a5fa', fillOpacity: 1 }).addTo(draftServerLayer);
-        m.bindTooltip('Entwurf (server): ' + d.title);
-        m.on('click', ()=> openModal({ id:d.id, title:d.title, artist:d.artist, image:d.image, description:d.description, mediaLink:d.mediaLink }));
-      });
-      applyLayerToggles();
-    }
-
-    // Drop-signal: pulse + beep
-    function unlockEffectAt(lat, lon){
-      const icon = L.divIcon({ className:'', html:'<div class="pulse-pin"></div><div class="pulse-ring"></div>', iconSize:[18,18], iconAnchor:[9,9] });
-      const pin = L.marker([lat, lon], {icon}).addTo(map);
-      setTimeout(()=> map.removeLayer(pin), 900);
-      try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const o = ctx.createOscillator(); const g = ctx.createGain();
-        o.frequency.value = 880; o.type = 'sine'; o.connect(g); g.connect(ctx.destination);
-        g.gain.setValueAtTime(0.0001, ctx.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.02);
-        g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.25);
-        o.start(); o.stop(ctx.currentTime + 0.26);
-      } catch(e) {}
-    }
-
-    function tryUnlock(a, userLatLng){
-      if(!userLatLng){ alert('Position noch nicht bereit – bitte Standortfreigabe erlauben.'); return; }
-      const dist = haversine({lat:userLatLng.lat, lon:userLatLng.lon || userLatLng.lng},{lat:a.lat, lon:a.lon});
-      if(dist <= a.radius){
-        unlocked[a.id] = { at: Date.now() }; saveUnlocks();
-        if(a._marker) a._marker.setStyle({ fillColor: getComputedStyle(document.documentElement).getPropertyValue('--good') });
-        renderList(userLatLng);
-        unlockEffectAt(a.lat, a.lon);
-        if(autoOpenEl.checked) openModal(a);
+        ).addTo(map);
       } else {
-        openLockedInfo(a, Math.round(dist));
+        userMarker.setLatLng([userLocation.lat, userLocation.lon]);
       }
+
+      renderList();
+      checkUnlocks();
     }
 
-    // Modal helpers
-    const modal = document.getElementById('modal');
-    const likeBtn = document.getElementById('btnLike');
-    const likeCountEl = document.getElementById('likeCount');
-    const shareBtn = document.getElementById('btnShare');
-    const playBtn = document.getElementById('btnPlay');
-    const btnArGeo = document.getElementById('btnArGeo');
-    const commentList = document.getElementById('commentList');
-    const commentInput = document.getElementById('commentInput');
-    const commentSend = document.getElementById('commentSend');
-    const claimBtn = document.getElementById('btnClaim');
-    const ownedBadge = document.getElementById('ownedBadge');
-    let currentArtwork = null;
+    function checkUnlocks() {
+      if (!userLocation) return;
+      artworks.forEach((a) => {
+        const d = haversine(
+          userLocation.lat,
+          userLocation.lon,
+          a.lat,
+          a.lon
+        );
+        const wasUnlocked = !!unlocked[a.id];
+        if (!wasUnlocked && d <= a.radius) {
+          unlocked[a.id] = true;
+          saveUnlocked();
+          showToast(`„${a.title}“ freigeschaltet 🎉`);
+          renderList();
+          if (autoOpen) {
+            openModal(a);
+          }
+        }
+      });
+    }
 
-    function renderComments(id){
-      commentList.innerHTML = '';
-      const arr = comments[id] || [];
-      const latest = arr.slice(-3);
-      latest.forEach(c=>{
-        const el = document.createElement('div'); el.className='comment'; el.textContent = c.text;
-        if (Array.isArray(c.replies)) {
-          c.replies.forEach(r=>{
-            const rEl = document.createElement('div'); rEl.className='comment comment-reply'; rEl.textContent = '↳ ' + r.text;
-            el.appendChild(rEl);
+    function renderList() {
+      if (!artworks.length) {
+        listEl.innerHTML =
+          '<div class="card"><div class="card-header">Keine Spots gefunden</div><div class="card-sub">Die artworks.json ist leer.</div></div>';
+        foundSummaryEl.textContent = "0 Spots";
+        return;
+      }
+
+      let items = artworks.map((a) => {
+        let dist = null;
+        if (userLocation) {
+          dist = haversine(
+            userLocation.lat,
+            userLocation.lon,
+            a.lat,
+            a.lon
+          );
+        }
+        return { art: a, dist };
+      });
+
+      items.sort((a, b) => {
+        if (a.dist == null && b.dist == null) return 0;
+        if (a.dist == null) return 1;
+        if (b.dist == null) return -1;
+        return a.dist - b.dist;
+      });
+
+      const total = items.length;
+      const unlockedCount = items.filter(
+        (x) => unlocked[x.art.id]
+      ).length;
+      foundSummaryEl.textContent = `${unlockedCount} / ${total} freigeschaltet`;
+
+      listEl.innerHTML = "";
+      for (const { art, dist } of items) {
+        const card = document.createElement("div");
+        card.className = "card";
+
+        const header = document.createElement("div");
+        header.className = "card-header";
+        header.textContent = art.title;
+        card.appendChild(header);
+
+        const sub = document.createElement("div");
+        sub.className = "card-sub";
+        sub.textContent = art.artist || "Unbekannt";
+        card.appendChild(sub);
+
+        const meta = document.createElement("div");
+        meta.className = "card-meta";
+
+        const left = document.createElement("div");
+        left.textContent =
+          (dist != null ? `Entfernung: ${formatDistance(dist)}` : "") +
+          (art.radius
+            ? (dist != null ? " · " : "") + `Radius: ${art.radius} m`
+            : "");
+        meta.appendChild(left);
+
+        const pill = document.createElement("div");
+        const isUnlocked = !!unlocked[art.id];
+        pill.className = "pill " + (isUnlocked ? "success" : "locked");
+        pill.textContent = isUnlocked ? "Freigeschaltet" : "Verschlossen";
+        meta.appendChild(pill);
+
+        card.appendChild(meta);
+
+        const btn = document.createElement("button");
+        btn.className = "btn " + (unlocked[art.id] ? "btn-primary" : "btn-outline");
+
+        if (unlocked[art.id]) {
+          btn.textContent = "Ansehen";
+          btn.addEventListener("click", () => openModal(art));
+        } else {
+          btn.textContent = "Vor Ort freischalten";
+          btn.addEventListener("click", () => {
+            if (!userLocation) {
+              showToast("Standort nicht aktiv");
+              return;
+            }
+            const d = haversine(
+              userLocation.lat,
+              userLocation.lon,
+              art.lat,
+              art.lon
+            );
+            if (d <= art.radius) {
+              unlocked[art.id] = true;
+              saveUnlocked();
+              showToast("Freigeschaltet 🎉");
+              renderList();
+              openModal(art);
+            } else {
+              alert(
+                `Zu weit weg – ${formatDistance(
+                  d
+                )} (benötigt ≤ ${art.radius} m)`
+              );
+            }
           });
         }
-        commentList.appendChild(el);
-      });
-      if (arr.length > 3) {
-        const btn = document.createElement('button');
-        btn.className = 'btn btn-ghost'; btn.textContent = `Alle ${arr.length} Kommentare anzeigen`;
-        btn.onclick = ()=> openAllComments(id); commentList.appendChild(btn);
+
+        card.appendChild(btn);
+        listEl.appendChild(card);
       }
     }
 
-    function openAllComments(id){
-      const arr = comments[id] || [];
-      const box = document.getElementById('allCommentsList');
-      box.innerHTML = '';
-      arr.forEach(c=>{
-        const el = document.createElement('div');
-        el.className = 'comment'; el.textContent = c.text;
-        if (Array.isArray(c.replies)) {
-          c.replies.forEach(r=>{
-            const rEl = document.createElement('div'); rEl.className='comment comment-reply'; rEl.textContent = '↳ ' + r.text;
-            el.appendChild(rEl);
-          });
+    function openModal(art) {
+      modalTitle.textContent = art.title;
+      modalArtist.textContent = art.artist || "";
+      modalImage.src = art.image;
+      modalDescription.textContent = art.description || "";
+
+      const likeCount = likes[art.id] || 0;
+      likeCountEl.textContent = likeCount;
+      if (likeCount > 0) {
+        btnLike.classList.add("like-active");
+      } else {
+        btnLike.classList.remove("like-active");
+      }
+
+      btnLike.onclick = () => {
+        let curr = likes[art.id] || 0;
+        curr += 1;
+        likes[art.id] = curr;
+        saveLikes();
+        likeCountEl.textContent = curr;
+        btnLike.classList.add("like-active");
+      };
+
+      btnShare.onclick = async () => {
+        const url = window.location.href.split("#")[0];
+        const shareText = `${art.title} – ARtHunt Spot`;
+        try {
+          if (navigator.share) {
+            await navigator.share({
+              title: shareText,
+              text: art.description || "",
+              url,
+            });
+          } else {
+            await navigator.clipboard.writeText(url);
+            showToast("Link in Zwischenablage kopiert");
+          }
+        } catch (e) {
+          console.log("Share abgebrochen", e);
         }
-        box.appendChild(el);
+      };
+
+      const artComments = comments[art.id] || [];
+      commentsPreview.innerHTML = "";
+      artComments.slice(-3).forEach((c) => {
+        const chip = document.createElement("div");
+        chip.className = "comment-chip";
+        chip.textContent = c.text;
+        commentsPreview.appendChild(chip);
       });
-      document.getElementById('commentsModal').classList.add('open');
+
+      btnAllComments.onclick = () => openCommentsOverlay(art);
+
+      btnAr.style.display = "none";
+      btnArGeo.style.display = "none";
+      btnAr.onclick = null;
+      btnArGeo.onclick = null;
+
+      if (art.ar) {
+        const mode = art.ar.mode || "model";
+
+        if (mode === "model" && art.ar.glb) {
+          btnAr.style.display = "inline-flex";
+          btnAr.onclick = () => {
+            const url = new URL("ar_basic.html", window.location.href);
+            url.searchParams.set("title", art.title || "");
+            url.searchParams.set("subtitle", art.artist || "");
+            url.searchParams.set("glb", art.ar.glb || "");
+            if (art.ar.usdz) url.searchParams.set("usdz", art.ar.usdz);
+            if (art.ar.scale)
+              url.searchParams.set("scale", String(art.ar.scale));
+            if (typeof art.ar.rot === "number")
+              url.searchParams.set("rot", String(art.ar.rot));
+            window.location.href = url.toString();
+          };
+        }
+
+        btnArGeo.style.display = "inline-flex";
+        btnArGeo.onclick = () => {
+          const url = new URL("geo_ar.html", window.location.href);
+          url.searchParams.set("title", art.title || "");
+          url.searchParams.set("subtitle", art.artist || "");
+          url.searchParams.set("lat", String(art.lat));
+          url.searchParams.set("lon", String(art.lon));
+
+          if (mode === "image") {
+            url.searchParams.set("mode", "image");
+            url.searchParams.set("src", art.ar.src || art.image || "");
+            url.searchParams.set(
+              "scale",
+              art.ar.scale ? String(art.ar.scale) : "4"
+            );
+          } else {
+            url.searchParams.set("mode", "model");
+            url.searchParams.set("src", art.ar.glb || "");
+            const s = art.ar.scale ? art.ar.scale / 100 : 1;
+            url.searchParams.set("scale", String(s));
+          }
+
+          window.location.href = url.toString();
+        };
+      }
+
+      btnSendComment.onclick = () => {
+        const text = commentInput.value.trim();
+        if (!text) return;
+        const arr = comments[art.id] || [];
+        arr.push({
+          text,
+          ts: Date.now(),
+        });
+        comments[art.id] = arr;
+        saveComments();
+        commentInput.value = "";
+        openModal(art);
+      };
+
+      modalBackdrop.style.display = "flex";
     }
 
-    function openLockedInfo(a, distanceMeters){
-      document.getElementById('infoTitle').textContent  = a.title || '';
-      document.getElementById('infoArtist').textContent = a.artist || '';
-      document.getElementById('infoDist').textContent   = (distanceMeters==null) ? 'Distanz: –' : `Distanz: ${distanceMeters} m`;
-      document.getElementById('infoNeed').textContent   = `Benötigt: ≤ ${a.radius} m`;
-      document.getElementById('infoLikes').textContent  = likes[a.id] || 0;
-
-      const wrap = document.getElementById('infoComments');
-      wrap.innerHTML = '';
-      const arr = comments[a.id] || [];
-      const latest = arr.slice(-2);
-      if (latest.length === 0) {
-        const el = document.createElement('div'); el.className = 'muted'; el.textContent = 'Noch keine Kommentare.';
-        wrap.appendChild(el);
+    function openCommentsOverlay(art) {
+      const arr = comments[art.id] || [];
+      commentsOverlayTitle.textContent = `Alle Kommentare zu „${art.title}“`;
+      commentsList.innerHTML = "";
+      if (!arr.length) {
+        const empty = document.createElement("div");
+        empty.textContent = "Noch keine Kommentare.";
+        empty.style.fontSize = "0.8rem";
+        empty.style.color = "#9ca3af";
+        commentsList.appendChild(empty);
       } else {
-        latest.forEach(c=>{
-          const el = document.createElement('div'); el.className = 'comment'; el.textContent = c.text; wrap.appendChild(el);
+        arr.forEach((c) => {
+          const div = document.createElement("div");
+          div.className = "comment-full";
+          const meta = document.createElement("span");
+          meta.className = "meta";
+          const date = new Date(c.ts || Date.now());
+          meta.textContent = date.toLocaleString();
+          const text = document.createElement("span");
+          text.textContent = c.text;
+          div.appendChild(meta);
+          div.appendChild(text);
+          commentsList.appendChild(div);
         });
       }
-
-      document.getElementById('btnAllComments').onclick = ()=> openAllComments(a.id);
-      document.getElementById('btnRoute').onclick = ()=> window.open(`https://www.google.com/maps?q=${a.lat},${a.lon}`, '_blank');
-      const claimInfoBtn = document.getElementById('btnClaimInfo');
-      claimInfoBtn.onclick = ()=>{
-        if (!ownedIds.includes(a.id)) { ownedIds.push(a.id); saveOwned(); renderInbox(); }
-        document.getElementById('infoModal').classList.remove('open');
-      };
-
-      document.getElementById('infoModal').classList.add('open');
+      commentsOverlay.style.display = "flex";
     }
 
-    function openModal(a){
-      currentArtwork = a;
-      document.getElementById('modal-title').textContent = a.title || '';
-      document.getElementById('modal-artist').textContent = a.artist || '';
-      document.getElementById('modal-img').src = a.image || 'https://picsum.photos/seed/arthunt/1200/800';
-      document.getElementById('modal-desc').textContent = a.description || '';
-       // --- AR-Buttons konfigurieren ---
-if (a.ar && a.ar.glb) {
-  // „freies“ AR (wie bisher)
-  btnAr.style.display = 'inline-block';
-  btnAr.onclick = () => {
-    const url = new URL('ar_basic.html', window.location.href);
-    url.searchParams.set('title', a.title || '');
-    url.searchParams.set('subtitle', a.artist || '');
-    url.searchParams.set('glb', a.ar.glb || '');
-    if (a.ar.usdz)  url.searchParams.set('usdz', a.ar.usdz);
-    if (a.ar.scale) url.searchParams.set('scale', String(a.ar.scale));
-    if (typeof a.ar.rot === 'number') url.searchParams.set('rot', String(a.ar.rot));
-    window.location.href = url.toString();
-  };
+    modalClose.addEventListener("click", () => {
+      modalBackdrop.style.display = "none";
+    });
+    modalBackdrop.addEventListener("click", (e) => {
+      if (e.target === modalBackdrop) {
+        modalBackdrop.style.display = "none";
+      }
+    });
 
-  // Geo-AR (am Ort)
-  btnArGeo.style.display = 'inline-block';
-  btnArGeo.onclick = () => {
-    const url = new URL('geo_ar.html', window.location.href);
-    url.searchParams.set('title', a.title || '');
-    url.searchParams.set('subtitle', a.artist || '');
-    url.searchParams.set('lat', a.lat);
-    url.searchParams.set('lon', a.lon);
-    url.searchParams.set('model', a.ar.glb || '');
-    // etwas kleinere Skala für AR.js, z.B. 1–10 statt 100
-    const s = a.ar.scale ? (a.ar.scale / 100) : 1;
-    url.searchParams.set('scale', String(s));
-    window.location.href = url.toString();
-  };
-} else {
-  btnAr.style.display = 'none';
-  btnAr.onclick = null;
-  btnArGeo.style.display = 'none';
-  btnArGeo.onclick = null;
-}
+    btnCloseComments.addEventListener("click", () => {
+      commentsOverlay.style.display = "none";
+    });
+    commentsOverlay.addEventListener("click", (e) => {
+      if (e.target === commentsOverlay) {
+        commentsOverlay.style.display = "none";
+      }
+    });
 
+    btnCenter.addEventListener("click", () => {
+      if (userLocation) {
+        map.setView([userLocation.lat, userLocation.lon], 16);
+      } else if (artworks.length) {
+        const a = artworks[0];
+        map.setView([a.lat, a.lon], 14);
+      }
+    });
 
-      likeCountEl.textContent = likes[a.id] || 0;
-      likeBtn.onclick = ()=>{ likes[a.id] = (likes[a.id]||0) + 1; saveLikes(); likeCountEl.textContent = likes[a.id]; };
-      shareBtn.onclick = async ()=>{
-        const url = location.href.split('#')[0] + '#art=' + encodeURIComponent(a.id);
-        if(navigator.share){ try { await navigator.share({ title:a.title, text:a.artist||'ARtHunt', url }); } catch(e){} }
-        else { await navigator.clipboard.writeText(url); alert('Link kopiert:\n'+url); }
-      };
-      if(a.mediaLink){ playBtn.style.display='inline-block'; playBtn.onclick = ()=> window.open(a.mediaLink, '_blank'); }
-      else { playBtn.style.display='none'; playBtn.onclick = null; }
+    document.getElementById("btnMenu").addEventListener("click", () => {
+      alert(
+        "Weitere Menüs wie Creator, Layers, Einstellungen usw. bauen wir in Phase B ein. Aktuell fokussieren wir auf Karte, AR und Kommentare."
+      );
+    });
 
-      renderComments(a.id);
-      commentSend.onclick = ()=>{
-        const txt = (commentInput.value||'').trim(); if(!txt) return;
-        comments[a.id] = comments[a.id] || []; comments[a.id].push({ text: txt, at: Date.now() }); saveComments();
-        commentInput.value=''; renderComments(a.id); renderInbox();
-      };
-      document.getElementById('btnAllCommentsBig').onclick = ()=> openAllComments(a.id);
+    async function init() {
+      loadStorage();
+      await loadArtworks();
+      initMap();
+      renderList();
 
-      // Creator claim
-      if (ownedIds.includes(a.id)) {
-        claimBtn.textContent = 'Aus Verwaltung entfernen';
-        ownedBadge.style.display = 'inline-block';
-        claimBtn.onclick = ()=>{ ownedIds = ownedIds.filter(x=>x!==a.id); saveOwned(); ownedBadge.style.display='none'; renderInbox(); openModal(a); };
+      if ("geolocation" in navigator) {
+        navigator.geolocation.watchPosition(
+          updateUserLocation,
+          (err) => {
+            console.warn("Geolocation error", err);
+            locationStatusEl.textContent = "Standort nicht verfügbar";
+          },
+          { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 }
+        );
       } else {
-        claimBtn.textContent = 'Als Creator verwalten';
-        ownedBadge.style.display = 'none';
-        claimBtn.onclick = ()=>{ ownedIds.push(a.id); saveOwned(); ownedBadge.style.display='inline-block'; renderInbox(); };
+        locationStatusEl.textContent = "Geolocation nicht verfügbar";
       }
-
-      modal.classList.add('open');
-    }
-    function closeModal(){ modal.classList.remove('open'); } window.closeModal = closeModal;
-
-    // Geolocation
-    function onLocation(pos){
-      const { latitude, longitude, accuracy } = pos.coords;
-      statusEl.textContent = `Standort aktiv – ±${Math.round(accuracy)} m`;
-      if(!userMarker){ userMarker = L.circleMarker([latitude, longitude], { radius: 8, color: '#2563eb', weight: 2, fillColor: '#60a5fa', fillOpacity: 1 }).addTo(map); map.setView([latitude, longitude], 16); }
-      else { userMarker.setLatLng([latitude, longitude]); }
-      document.getElementById('fCoords').value = latitude.toFixed(6)+', '+longitude.toFixed(6);
-      renderList({ lat: latitude, lng: longitude }); checkAutoOpen(latitude, longitude);
-    }
-    function onLocationError(err){ statusEl.textContent = 'Standortfehler – bitte erlauben'; renderList(null); }
-    if('geolocation' in navigator){ navigator.geolocation.watchPosition(onLocation, onLocationError, { enableHighAccuracy:true, timeout:10000, maximumAge:5000 }); }
-    else { onLocationError(new Error('Geolocation nicht verfügbar')); }
-
-    function checkAutoOpen(lat, lon){
-      if(!autoOpenEl.checked) return;
-      artworks.forEach(a=>{
-        if(unlocked[a.id]) return;
-        const d = haversine({lat, lon},{lat:a.lat, lon:a.lon});
-        if(d <= a.radius){ tryUnlock(a, {lat, lon}); }
-      });
     }
 
-    // Load data
-    async function fetchJsonSafe(path){
-      try {
-        const r = await fetch(path, { cache:'no-store' });
-        if(!r.ok) throw new Error('not ok');
-        return await r.json();
-      } catch(e){ return null; }
-    }
-    (async ()=>{
-      const a = await fetchJsonSafe('artworks.json');
-      artworks = a && Array.isArray(a) ? a : DEFAULT_ARTWORKS;
-      wireMarkers(); renderList(null);
-      const s = await fetchJsonSafe('submissions.json');
-      draftsServer = s && Array.isArray(s) ? s : [];
-      renderDraftMarkers();
-    })();
-
-    // Creator logic
-    const fTitle = document.getElementById('fTitle'), fArtist = document.getElementById('fArtist'), fRadius = document.getElementById('fRadius'),
-          fCoords = document.getElementById('fCoords'), fDesc = document.getElementById('fDesc'), fImage = document.getElementById('fImage'),
-          fMediaLink = document.getElementById('fMediaLink'), imgPreview = document.getElementById('imgPreview'), draftList = document.getElementById('draftList');
-
-    function slugify(s){ return (s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
-
-    fImage.addEventListener('change', ()=>{
-      const file = fImage.files?.[0]; if(!file){ imgPreview.textContent='Noch kein Bild ausgewählt.'; return; }
-      const reader = new FileReader(); reader.onload = e=>{ imgPreview.innerHTML='<img src="'+e.target.result+'" alt="Preview">'; imgPreview.dataset.dataurl = e.target.result; };
-      reader.readAsDataURL(file);
-    });
-
-    document.getElementById('btnUseHere').addEventListener('click', ()=>{
-      if(userMarker){ const p = userMarker.getLatLng(); fCoords.value = p.lat.toFixed(6)+', '+p.lng.toFixed(6); } else alert('Standort noch nicht aktiv.');
-    });
-
-    function renderDrafts(){
-      draftList.innerHTML = '';
-      draftsLocal.forEach((d,i)=>{
-        const el = document.createElement('div'); el.className='item';
-        el.innerHTML = '<div style="font-weight:700">'+d.title+'</div>'+
-          '<div class="muted" style="margin-bottom:6px">'+(d.artist||'')+' – '+d.lat+', '+d.lon+'</div>'+
-          (d.image?'<img style="max-width:100%;border-radius:8px" src="'+d.image+'"/>':'')+
-          (d.mediaLink?'<div class="chip" style="margin-top:6px">🔗 Link: '+d.mediaLink+'</div>':'')+
-          '<div style="margin-top:6px;font-size:12px">'+(d.description||'')+'</div>'+
-          '<div style="display:flex;gap:6px;margin-top:8px"><button class="btn btn-ghost" data-i="'+i+'">Löschen</button></div>';
-        draftList.appendChild(el);
-        el.querySelector('button').addEventListener('click', ()=>{ draftsLocal.splice(i,1); saveDrafts(); renderDrafts(); renderDraftMarkers(); });
-      });
-      renderDraftMarkers();
-    }
-    renderDrafts();
-
-    document.getElementById('btnAdd').addEventListener('click', ()=>{
-      const parts = (fCoords.value||'').split(','); const lat = parseFloat((parts[0]||'').trim()); const lon = parseFloat((parts[1]||'').trim());
-      if(!fTitle.value || !fArtist.value || isNaN(lat) || isNaN(lon)){ alert('Bitte Titel, Künstler und Koordinaten angeben.'); return; }
-      const entry = { id: slugify(fTitle.value)+'-'+Date.now().toString(36).slice(-4), title: fTitle.value, artist: fArtist.value, lat, lon,
-        radius: Math.max(10, Math.min(300, parseInt(fRadius.value||'60',10))), image: imgPreview.dataset.dataurl || '', description: fDesc.value || '', mediaLink: (fMediaLink.value||'').trim() };
-      draftsLocal.push(entry); saveDrafts(); renderDrafts(); renderDraftMarkers();
-      alert('Entwurf gespeichert (lokal). Über "Als JSON exportieren" kannst du ihn ins Repo übernehmen.');
-      fTitle.value=''; fArtist.value=''; fRadius.value='60'; fDesc.value=''; fImage.value=''; imgPreview.textContent='Noch kein Bild ausgewählt.'; delete imgPreview.dataset.dataurl; fMediaLink.value='';
-    });
-
-    document.getElementById('btnExport').addEventListener('click', ()=>{
-      if(!draftsLocal.length){ alert('Keine Entwürfe vorhanden.'); return; }
-      const blob = new Blob([JSON.stringify(draftsLocal, null, 2)], {type:'application/json'});
-      const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'submissions.json'; a.click(); URL.revokeObjectURL(url);
-    });
-
-    document.getElementById('btnClear').addEventListener('click', ()=>{
-      if(confirm('Alle lokalen Entwürfe löschen?')){ draftsLocal = []; saveDrafts(); renderDrafts(); renderDraftMarkers(); }
-    });
-
-    // Settings
-    let deferredPrompt = null;
-    window.addEventListener('beforeinstallprompt', (e)=>{ e.preventDefault(); deferredPrompt = e; });
-    document.getElementById('btnInstallPWA').addEventListener('click', async ()=>{ if(deferredPrompt){ deferredPrompt.prompt(); deferredPrompt = null; } else { alert('Wenn „Zum Startbildschirm hinzufügen“ erscheint, bitte dort nutzen.'); } });
-    document.getElementById('btnClearLocal').addEventListener('click', ()=>{
-      if(confirm('Alle lokalen Daten (Freischaltungen, Likes, Kommentare, Entwürfe) löschen?')){
-        localStorage.removeItem(STORAGE_UNLOCK);
-        localStorage.removeItem(STORAGE_DRAFTS);
-        localStorage.removeItem(STORAGE_LIKES);
-        localStorage.removeItem(STORAGE_COMMENTS);
-        localStorage.removeItem(STORAGE_OWNED);
-        location.reload();
-      }
-    });
-
-    // Activity + Inbox
-    function renderInbox(){
-      const box = document.getElementById('inbox'); if(!box) return;
-      box.innerHTML = '';
-      let items = [];
-      ownedIds.forEach(id=>{
-        const arr = comments[id] || [];
-        arr.forEach((c, idx)=> items.push({ id, idx, text:c.text, at:c.at }));
-      });
-      items.sort((a,b)=> (b.at||0)-(a.at||0));
-      if(!items.length){ box.innerHTML = '<div class="item muted">Keine Kommentare vorhanden (oder noch keine Werke übernommen).</div>'; return; }
-      items.forEach(it=>{
-        const aw = artworks.find(x=>x.id===it.id) || draftsLocal.find(x=>x.id===it.id) || draftsServer.find(x=>x.id===it.id) || {title:'Unbekannt', artist:''};
-        const el = document.createElement('div'); el.className = 'item';
-        const when = it.at ? new Date(it.at).toLocaleString() : '';
-        el.innerHTML = `
-          <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
-            <div>
-              <div style="font-weight:700">${aw.title}</div>
-              <div class="muted" style="font-size:12px">${aw.artist||''} · ${when}</div>
-            </div>
-            <button class="btn btn-ghost" data-open>Öffnen</button>
-          </div>
-                 <div class="comment-light" style="margin-top:6px">${it.text}</div>
-          <div style="display:flex;gap:6px;margin-top:8px;">
-            <button class="btn btn-ghost" data-reply>Antworten</button>
-            <button class="btn btn-ghost" data-del>Löschen</button>
-          </div>`;
-        el.querySelector('[data-open]').onclick = ()=>{
-          const a = artworks.find(x=>x.id===it.id) || draftsLocal.find(x=>x.id===it.id) || draftsServer.find(x=>x.id===it.id);
-          if(a){ document.getElementById('drawer').classList.remove('open'); openModal(a);} 
-        };
-        el.querySelector('[data-reply]').onclick = ()=>{
-          const txt = prompt('Antwort schreiben:'); if(!txt) return;
-          const arr = comments[it.id] || []; const parent = arr[it.idx];
-          if (parent) { if (!Array.isArray(parent.replies)) parent.replies = []; parent.replies.push({ text:'[Creator] '+txt, at: Date.now() }); }
-          comments[it.id] = arr; saveComments();
-          renderComments(it.id); renderInbox();
-        };
-        el.querySelector('[data-del]').onclick = ()=>{
-          if(!confirm('Diesen Kommentar löschen?')) return;
-          comments[it.id].splice(it.idx,1); saveComments(); renderComments(it.id); renderInbox();
-        };
-        box.appendChild(el);
-      });
-    }
-
-    function renderActivity(){
-      const el = document.getElementById('activity');
-      const likeSum = Object.values(likes).reduce((a,b)=>a+b,0);
-      const commentSum = Object.values(comments).reduce((a,b)=>a+(Array.isArray(b)?b.length:0),0);
-      el.innerHTML = `
-        <div class="item"><b>Likes (lokal):</b> ${likeSum}</div>
-        <div class="item"><b>Kommentare (lokal):</b> ${commentSum}</div>
-        <div class="item"><b>Entwürfe (lokal):</b> ${draftsLocal.length}</div>
-        <div class="item"><b>Entwürfe (server):</b> ${draftsServer.length}</div>
-      `;
-      renderInbox();
-    }
-    setInterval(renderActivity, 1500);
+    init();
   </script>
 </body>
 </html>

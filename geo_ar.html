@@ -1,139 +1,187 @@
 <!doctype html>
 <html lang="de">
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   <title>ARtHunt – Geo-AR</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
 
-  <!-- A-Frame + AR.js mit GPS-Unterstützung -->
   <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
   <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
 
   <style>
-    html, body {
+    :root {
+      color-scheme: dark;
+      --bg: #020617;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    html,
+    body {
       margin: 0;
       padding: 0;
+      height: 100%;
+      width: 100%;
       overflow: hidden;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
       background: #000;
-      color: #fff;
+      color: var(--text);
     }
     #hud {
       position: fixed;
-      left: 0;
-      right: 0;
-      top: 0;
-      padding: 8px 10px;
+      top: 0.4rem;
+      left: 0.4rem;
+      right: 0.4rem;
+      padding: 0.45rem 0.6rem;
+      border-radius: 999px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: linear-gradient(to bottom, rgba(0,0,0,.8), transparent);
-      z-index: 10;
-      font-size: 13px;
+      background: radial-gradient(
+          circle at top left,
+          rgba(34, 197, 94, 0.3),
+          transparent 60%
+        ),
+        rgba(15, 23, 42, 0.96);
+      backdrop-filter: blur(14px);
+      z-index: 5;
+      font-size: 0.8rem;
     }
     #hud .title {
       font-weight: 600;
+      font-size: 0.85rem;
     }
     #hud .subtitle {
-      opacity: .8;
-      font-size: 12px;
+      font-size: 0.7rem;
+      color: var(--muted);
     }
     #hud button {
       border-radius: 999px;
-      border: 0;
-      padding: 6px 10px;
-      font-size: 12px;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      background: rgba(15, 23, 42, 0.96);
+      color: var(--text);
+      padding: 0.25rem 0.7rem;
+      font-size: 0.75rem;
       cursor: pointer;
     }
     #msg {
       position: fixed;
       left: 50%;
+      bottom: 0.5rem;
       transform: translateX(-50%);
-      bottom: 10px;
-      padding: 6px 10px;
-      background: rgba(0,0,0,.7);
+      background: rgba(15, 23, 42, 0.96);
       border-radius: 999px;
-      font-size: 12px;
-      z-index: 10;
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      padding: 0.3rem 0.8rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+      z-index: 5;
+      max-width: 90%;
+      text-align: center;
     }
   </style>
 </head>
 <body>
-<div id="hud">
-  <div>
-    <div id="title" class="title">ARtHunt Geo-AR</div>
-    <div id="subtitle" class="subtitle"></div>
+  <div id="hud">
+    <div>
+      <div id="title" class="title">ARtHunt Geo-AR</div>
+      <div id="subtitle" class="subtitle"></div>
+    </div>
+    <button onclick="goBack()">Zurück</button>
   </div>
-  <button onclick="goBack()">Zurück</button>
-</div>
-<div id="msg">Suche GPS-Position…</div>
+  <div id="msg">Suche GPS-Position… Bewege dich in die Nähe des Spots.</div>
 
-<!-- AR-Szene -->
-<a-scene
+  <a-scene
     vr-mode-ui="enabled: false"
     embedded
     renderer="logarithmicDepthBuffer: true;"
-    arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false;">
+    arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false;"
+  >
+    <a-camera gps-camera rotation-reader></a-camera>
 
-  <!-- Kamera liest GPS & Kompass -->
-  <a-camera gps-camera rotation-reader></a-camera>
+    <!-- Container für das Objekt (Model oder Bild) -->
+    <a-entity id="artContainer"></a-entity>
+  </a-scene>
 
-  <!-- Unser Kunstwerk; Werte setzen wir per JS -->
-  <a-entity id="art-entity"
-            gps-entity-place="latitude: 0; longitude: 0;"
-            gltf-model=""
-            scale="1 1 1">
-  </a-entity>
-</a-scene>
+  <script>
+    const qs = new URLSearchParams(location.search);
+    const title = qs.get("title") || "ARtHunt Geo-AR";
+    const subtitle = qs.get("subtitle") || "";
+    const lat = parseFloat(qs.get("lat") || "0");
+    const lon = parseFloat(qs.get("lon") || "0");
+    const mode = qs.get("mode") || "model";
+    const src = qs.get("src") || "";
+    const scaleParam = parseFloat(qs.get("scale") || "1");
 
-<script>
-  // URL-Parameter lesen
-  const qs = new URLSearchParams(location.search);
-  const title = qs.get('title') || 'ARtHunt Geo-AR';
-  const subtitle = qs.get('subtitle') || '';
-  const lat = parseFloat(qs.get('lat') || '0');
-  const lon = parseFloat(qs.get('lon') || '0');
-  const model = qs.get('model') || '';
-  const scaleParam = parseFloat(qs.get('scale') || '1');
+    document.getElementById("title").textContent = title;
+    document.getElementById("subtitle").textContent =
+      subtitle || `Ziel: ${lat.toFixed(5)}, ${lon.toFixed(5)}`;
 
-  document.getElementById('title').textContent = title;
-  document.getElementById('subtitle').textContent = subtitle || `Ziel: ${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+    const artContainer = document.getElementById("artContainer");
 
-  const art = document.getElementById('art-entity');
+    window.addEventListener("load", () => {
+      if (!src) {
+        document.getElementById("msg").textContent =
+          "Kein AR-Inhalt definiert.";
+        return;
+      }
 
-  // Modell & Position setzen, wenn Szene bereit ist
-  window.addEventListener('load', () => {
-    if (model) {
-      art.setAttribute('gltf-model', model);
+      if (mode === "image") {
+        const img = document.createElement("a-image");
+        img.setAttribute("gps-entity-place", `latitude: ${lat}; longitude: ${lon};`);
+        img.setAttribute("src", src);
+        img.setAttribute("look-at", "[gps-camera]");
+        const s = scaleParam || 4;
+        img.setAttribute("scale", `${s} ${s} ${s}`);
+        artContainer.appendChild(img);
+      } else {
+        const model = document.createElement("a-entity");
+        model.setAttribute(
+          "gps-entity-place",
+          `latitude: ${lat}; longitude: ${lon};`
+        );
+        model.setAttribute("gltf-model", src);
+        const s = scaleParam || 1;
+        model.setAttribute("scale", `${s} ${s} ${s}`);
+        artContainer.appendChild(model);
+      }
+    });
+
+    window.addEventListener("gps-camera-update-position", (e) => {
+      const pos = e.detail.position;
+      const d = distanceMeters(pos.latitude, pos.longitude, lat, lon);
+      document.getElementById(
+        "msg"
+      ).textContent = `Du bist ca. ${d.toFixed(
+        0
+      )} m vom Spot entfernt. Schau dich um – das Objekt sollte in der Nähe erscheinen.`;
+    });
+
+    function distanceMeters(lat1, lon1, lat2, lon2) {
+      const R = 6371000;
+      const toRad = (v) => (v * Math.PI) / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) *
+          Math.cos(toRad(lat2)) *
+          Math.sin(dLon / 2) *
+          Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
     }
-    art.setAttribute('gps-entity-place', `latitude: ${lat}; longitude: ${lon};`);
-    art.setAttribute('scale', `${scaleParam} ${scaleParam} ${scaleParam}`);
-  });
 
-  // einfache Statusmeldungen zur Orientierung
-  window.addEventListener('gps-camera-update-position', (e) => {
-    const { position } = e.detail;
-    const d = distanceMeters(position.latitude, position.longitude, lat, lon);
-    document.getElementById('msg').textContent =
-      `Du bist ca. ${d.toFixed(0)} m vom Werk entfernt. Schau dich um – das Objekt sollte in der Nähe schweben.`;
-  });
-
-  function distanceMeters(lat1, lon1, lat2, lon2) {
-    const R = 6371000;
-    const toRad = x => x * Math.PI / 180;
-    const dLat = toRad(lat2 - lat1);
-    const dLon = toRad(lon2 - lon1);
-    const a = Math.sin(dLat/2)**2 +
-              Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*
-              Math.sin(dLon/2)**2;
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
-  }
-
-  function goBack() {
-    if (document.referrer) history.back();
-    else location.href = './';
-  }
-</script>
+    function goBack() {
+      if (document.referrer) {
+        history.back();
+      } else {
+        location.href = "./";
+      }
+    }
+    window.goBack = goBack;
+  </script>
 </body>
 </html>

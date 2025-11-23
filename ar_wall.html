@@ -7,6 +7,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, user-scalable=no"
     />
+
     <style>
       body {
         margin: 0;
@@ -71,7 +72,7 @@
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
 
     <script>
-      // Gleiche Bilder wie im Karussell – Dateinamen müssen im Repo genauso existieren
+      // dieselben Bilder wie beim Karussell
       const WALL_IMAGES = [
         "20251102_1707_Brücke im Rembrandt-Stil_remix_01k92n2vsqee2rjsqxe12cz19g.png",
         "20251105_2137_Weihnachtslandschaft à la Van Gogh_simple_compose_01k9avpygheafv8mmb9ycav852.png",
@@ -82,13 +83,13 @@
         "20251102_1623_Picasso-Interpretation_remix_01k92jh05me2g9j6prbcntxxfq.png"
       ];
 
-      // ✅ KORRIGIERTE Haversine-Funktion
+      // Entfernung GPS → Spot
       function haversineDistance(lat1, lon1, lat2, lon2) {
-        const R = 6371000; // Erde in m
+        const R = 6371000;
         const toRad = (v) => (v * Math.PI) / 180;
 
         const dLat = toRad(lat2 - lat1);
-        const dLon = toRad(lon2 - lon1); // <<< wichtig: lon2 - lon1, nicht lat2 - lon1
+        const dLon = toRad(lon2 - lon1);
 
         const a =
           Math.sin(dLat / 2) * Math.sin(dLat / 2) +
@@ -98,70 +99,63 @@
             Math.sin(dLon / 2);
 
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c; // Entfernung in Metern
+        return R * c;
       }
 
-      // A-Frame Komponente: Wand-Galerie
-      AFRAME.registerComponent("wall-gallery", {
+      // Zickzack-Wand-Galerie
+      AFRAME.registerComponent("zigzag-gallery", {
         schema: {
-          cols: { type: "number", default: 3 },
-          spacing: { type: "number", default: 0.3 },
-          planeWidth: { type: "number", default: 2 },
-          planeHeight: { type: "number", default: 1.4 },
-          height: { type: "number", default: 1.6 }
+          spacingX: { type: "number", default: 2.0 }, // Abstand zwischen Segmenten
+          depth: { type: "number", default: 0.8 }, // Zickzack-Tiefe
+          planeWidth: { type: "number", default: 1.5 },
+          planeHeight: { type: "number", default: 1.0 },
+          height: { type: "number", default: 1.7 }, // Augenhöhe Mitte Bild
+          angle: { type: "number", default: 20 } // Drehung der Segmente
         },
         init: function () {
           const el = this.el;
-          const data = this.data;
+          const d = this.data;
 
           const count = WALL_IMAGES.length;
-          const cols = data.cols;
-          const rows = Math.ceil(count / cols);
+          const stepX = d.spacingX;
+          const totalLength = (count - 1) * stepX;
 
-          // Gesamtbreite der Bilder + Abstände
-          const totalWidth =
-            cols * data.planeWidth + (cols - 1) * data.spacing;
-          const totalHeight =
-            rows * data.planeHeight + (rows - 1) * data.spacing;
-
-          // Wand hinter den Bildern
-          const wall = document.createElement("a-plane");
-          wall.setAttribute("width", totalWidth + 1);
-          wall.setAttribute("height", totalHeight + 1);
-          wall.setAttribute(
-            "material",
-            "color: #f3f4f6; roughness: 0.9; metalness: 0.0"
-          );
-          // Wand steht 5 m vor dem Geo-Spot
-          wall.setAttribute("position", `0 ${data.height} -5`);
-          wall.setAttribute("rotation", "0 0 0");
-          el.appendChild(wall);
-
-          // Bilder auf die Wand legen
           for (let i = 0; i < count; i++) {
             const src = WALL_IMAGES[i];
-            const row = Math.floor(i / cols);
-            const col = i % cols;
 
-            const xOffset =
-              -totalWidth / 2 +
-              data.planeWidth / 2 +
-              col * (data.planeWidth + data.spacing);
-            const yOffset =
-              totalHeight / 2 -
-              data.planeHeight / 2 -
-              row * (data.planeHeight + data.spacing);
+            // X so, dass alles um die Mitte herum verteilt ist
+            const x = -totalLength / 2 + i * stepX;
 
-            const plane = document.createElement("a-plane");
-            plane.setAttribute("width", data.planeWidth);
-            plane.setAttribute("height", data.planeHeight);
-            plane.setAttribute("material", `src: ${src}; side: front`);
-            plane.setAttribute(
-              "position",
-              `${xOffset} ${data.height + yOffset} -4.99`
+            // Zickzack nach vorne / hinten
+            const isEven = i % 2 === 0;
+            const z = isEven ? -d.depth / 2 : d.depth / 2;
+            const rotY = isEven ? d.angle : -d.angle;
+
+            // Hintergrund-Wandsegment
+            const panel = document.createElement("a-plane");
+            panel.setAttribute("width", d.planeWidth + 0.3);
+            panel.setAttribute("height", d.planeHeight + 0.3);
+            panel.setAttribute(
+              "material",
+              "color: #f3f4f6; roughness: 0.9; metalness: 0.0; side: double"
             );
-            plane.setAttribute("rotation", "0 0 0");
-            el.appendChild(plane);
+            panel.setAttribute("position", `${x} ${d.height} ${z}`);
+            panel.setAttribute("rotation", `0 ${rotY} 0`);
+            el.appendChild(panel);
+
+            // Bild etwas kleiner davor
+            const img = document.createElement("a-plane");
+            img.setAttribute("width", d.planeWidth);
+            img.setAttribute("height", d.planeHeight);
+            img.setAttribute("material", `src: ${src}; side: front`);
+
+            // leicht aus der Wand heraus schieben (entlang Z in lokaler Orientierung)
+            // kleine Verschiebung in Welt-Z reicht hier optisch aus
+            const zOffset = isEven ? -0.01 : 0.01;
+            img.setAttribute("position", `${x} ${d.height} ${z + zOffset}`);
+            img.setAttribute("rotation", `0 ${rotY} 0`);
+
+            el.appendChild(img);
           }
         }
       });
@@ -222,19 +216,17 @@
       renderer="logarithmicDepthBuffer: true; antialias: true"
       arjs="sourceType: webcam; debugUIEnabled: false;"
     >
-      <!-- AR-Kamera mit GPS -->
+      <!-- Kamera mit GPS -->
       <a-camera
-        id="user-camera"
         gps-camera="simulateAltitude: 0"
         rotation-reader
         position="0 1.6 0"
       ></a-camera>
 
-      <!-- Galerie-Wand am Geo-Spot -->
+      <!-- Zickzack-Galerie am Geo-Spot -->
       <a-entity
-        id="wall-root"
         gps-entity-place="latitude: 53.703157; longitude: 9.983786"
-        wall-gallery="cols: 3; spacing: 0.3; planeWidth: 2; planeHeight: 1.4; height: 1.8"
+        zigzag-gallery="spacingX: 2; depth: 0.9; planeWidth: 1.5; planeHeight: 1.0; height: 1.7; angle: 22"
       >
       </a-entity>
     </a-scene>

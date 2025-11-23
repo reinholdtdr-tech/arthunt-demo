@@ -82,20 +82,23 @@
         "20251102_1623_Picasso-Interpretation_remix_01k92jh05me2g9j6prbcntxxfq.png"
       ];
 
-      // Entfernung berechnen (für HUD)
+      // ✅ KORRIGIERTE Haversine-Funktion
       function haversineDistance(lat1, lon1, lat2, lon2) {
-        const R = 6371000; // m
+        const R = 6371000; // Erde in m
         const toRad = (v) => (v * Math.PI) / 180;
+
         const dLat = toRad(lat2 - lat1);
-        const dLon = toRad(lat2 - lon1);
+        const dLon = toRad(lon2 - lon1); // <<< wichtig: lon2 - lon1, nicht lat2 - lon1
+
         const a =
           Math.sin(dLat / 2) * Math.sin(dLat / 2) +
           Math.cos(toRad(lat1)) *
             Math.cos(toRad(lat2)) *
             Math.sin(dLon / 2) *
             Math.sin(dLon / 2);
+
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c;
+        return R * c; // Entfernung in Metern
       }
 
       // A-Frame Komponente: Wand-Galerie
@@ -125,13 +128,11 @@
           const wall = document.createElement("a-plane");
           wall.setAttribute("width", totalWidth + 1);
           wall.setAttribute("height", totalHeight + 1);
-          wall.setAttribute("color", "#f3f4f6");
           wall.setAttribute(
-  "material",
-  "color: #f3f4f6; roughness: 0.9; metalness: 0.0"
-);
-
-          // Wand steht 5 m vor dem Geo-Spot und schaut Richtung Kamera
+            "material",
+            "color: #f3f4f6; roughness: 0.9; metalness: 0.0"
+          );
+          // Wand steht 5 m vor dem Geo-Spot
           wall.setAttribute("position", `0 ${data.height} -5`);
           wall.setAttribute("rotation", "0 0 0");
           el.appendChild(wall);
@@ -182,11 +183,12 @@
               );
               const distRounded = Math.round(dist);
               const accRounded = Math.round(accuracy);
+
               hud.textContent = `Du bist ca. ${distRounded} m vom Spot entfernt (GPS ± ${accRounded} m). Geh näher heran und schau nach vorne – die Galerie-Wand sollte einige Meter vor dir stehen.`;
             },
             () => {
               hud.textContent =
-                "Standort konnte nicht ermittelt werden. Bitte GPS aktivieren und Browser Berechtigung erteilen.";
+                "Standort konnte nicht ermittelt werden. Bitte GPS aktivieren und Browser-Berechtigung erteilen.";
             },
             { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
           );

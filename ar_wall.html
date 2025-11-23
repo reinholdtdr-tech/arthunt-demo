@@ -126,7 +126,11 @@
           wall.setAttribute("width", totalWidth + 1);
           wall.setAttribute("height", totalHeight + 1);
           wall.setAttribute("color", "#f3f4f6");
-          wall.setAttribute("material", "roughness: 0.9; metalness: 0.0");
+          wall.setAttribute(
+  "material",
+  "color: #f3f4f6; roughness: 0.9; metalness: 0.0"
+);
+
           // Wand steht 5 m vor dem Geo-Spot und schaut Richtung Kamera
           wall.setAttribute("position", `0 ${data.height} -5`);
           wall.setAttribute("rotation", "0 0 0");
@@ -150,7 +154,7 @@
             const plane = document.createElement("a-plane");
             plane.setAttribute("width", data.planeWidth);
             plane.setAttribute("height", data.planeHeight);
-            plane.setAttribute("material", `src: url(${src}); side: front`);
+            plane.setAttribute("material", `src: ${src}; side: front`);
             plane.setAttribute(
               "position",
               `${xOffset} ${data.height + yOffset} -4.99`

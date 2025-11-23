@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <title>ARtHunt – ZickZack-Galerie</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no"
+    />
+
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #000;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+      }
+
+      #hud {
+        position: fixed;
+        left: 50%;
+        bottom: 1.5rem;
+        transform: translateX(-50%);
+        padding: 0.6rem 1.2rem;
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.7);
+        color: #f5f5f5;
+        font-size: 0.8rem;
+        text-align: center;
+        max-width: 90vw;
+        z-index: 5;
+      }
+
+      #titleBar {
+        position: fixed;
+        left: 0.75rem;
+        right: 0.75rem;
+        top: 0.75rem;
+        padding: 0.6rem 1rem;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #141e30, #243b55);
+        color: #fff;
+        font-size: 0.9rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        z-index: 5;
+      }
+
+      #titleBar span {
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      #backBtn {
+        border: none;
+        border-radius: 999px;
+        padding: 0.4rem 0.9rem;
+        font-size: 0.8rem;
+        background: rgba(255, 255, 255, 0.12);
+        color: #fff;
+        cursor: pointer;
+      }
+    </style>
+
+    <!-- A-Frame + AR.js (Geo-AR / Light-Variante) -->
+    <script src="https://aframe.io/releases/1.4.1/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+
+    <script>
+      // Alle Bilder, wie bisher benutzt – müssen im Repo-Root liegen
+      const ZIG_IMAGES = [
+        "20251102_1707_Brücke im Rembrandt-Stil_remix_01k92n2vsqee2rjsqxe12cz19g.png",
+        "20251105_2137_Weihnachtslandschaft à la Van Gogh_simple_compose_01k9avpygheafv8mmb9ycav852.png",
+        "20251102_1618_Van Gogh Stilbrücke_remix_01k92j85azezrrerbzhgw95hgm.png",
+        "20251027_2116_Van Gogh's Prague Impression_simple_compose_01k8kmxe1xefda9a7k536jxjs0 (1).png",
+        "20251105_2134_Weihnachtslandschaft à la van Gogh_simple_compose_01k9avhp31fq3affv1c07y74ta.png",
+        "20251030_1420_Van Gogh's Charles Bridge_remix_01k8tm9crpedysvyykbpw44a7y.png",
+        "20251102_1623_Picasso-Interpretation_remix_01k92jh05me2g9j6prbcntxxfq.png"
+      ];
+
+      // Entfernung berechnen (HUD-Text)
+      function haversineDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371000; // m
+        const toRad = (v) => (v * Math.PI) / 180;
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(toRad(lat1)) *
+            Math.cos(toRad(lat2)) *
+            Math.sin(dLon / 2) *
+            Math.sin(dLon / 2);
+
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+      }
+
+      // ZickZack-Galerie-Komponente
+      AFRAME.registerComponent("zigzag-gallery", {
+        schema: {
+          segmentLength: { type: "number", default: 3 }, // Länge jeder Wand
+          wallHeight: { type: "number", default: 2.5 },
+          wallThickness: { type: "number", default: 0.12 },
+          spacing: { type: "number", default: 0.7 }, // Abstand zwischen Segmenten
+          angle: { type: "number", default: 45 }, // Drehung links/rechts
+          pictureWidth: { type: "number", default: 1.6 },
+          pictureHeight: { type: "number", default: 1.0 },
+          pictureY: { type: "number", default: 1.6 } // Augenhöhe
+        },
+        init: function () {
+          const el = this.el;
+          const d = this.data;
+
+          const count = ZIG_IMAGES.length;
+          if (!count) return;
+
+          // Gesamtbreite berechnen, damit die Galerie um die Mitte herum sitzt
+          const step = d.segmentLength + d.spacing;
+          const total = (count - 1) * step;
+
+          const wallMat =
+            "color: #f5f5f5; roughness: 0.9; metalness: 0.0; side: double";
+
+          for (let i = 0; i < count; i++) {
+            const imgSrc = ZIG_IMAGES[i];
+
+            // Segment-Entity (damit Rotation + Position für Wand + Bild gemeinsam gelten)
+            const seg = document.createElement("a-entity");
+
+            const x = -total / 2 + i * step;
+            const z = 0;
+            const rotY = i % 2 === 0 ? -d.angle : d.angle; // ZickZack-Blickrichtung
+
+            seg.setAttribute("position", `${x} 0 ${z}`);
+            seg.setAttribute("rotation", `0 ${rotY} 0`);
+
+            // Wand als a-box (vom Boden bis 2,5m)
+            const wall = document.createElement("a-box");
+            wall.setAttribute("width", d.segmentLength);
+            wall.setAttribute("height", d.wallHeight);
+            wall.setAttribute("depth", d.wallThickness);
+            wall.setAttribute(
+              "position",
+              `0 ${d.wallHeight / 2} 0`
+            );
+            wall.setAttribute("material", wallMat);
+            seg.appendChild(wall);
+
+            // Bild etwas vor der Wand, auf Augenhöhe
+            const pic = document.createElement("a-plane");
+            pic.setAttribute("width", d.pictureWidth);
+            pic.setAttribute("height", d.pictureHeight);
+            pic.setAttribute("material", `src: ${imgSrc}; side: front`);
+            pic.setAttribute(
+              "position",
+              `0 ${d.pictureY} ${d.wallThickness / 2 + 0.02}`
+            );
+            pic.setAttribute("rotation", "0 0 0");
+            seg.appendChild(pic);
+
+            el.appendChild(seg);
+          }
+        }
+      });
+
+      document.addEventListener("DOMContentLoaded", () => {
+        const hud = document.getElementById("hud");
+        const TARGET_LAT = 53.70268;
+        const TARGET_LON = 9.98191;
+
+        // Standortanzeige (optional, zur Orientierung)
+        if ("geolocation" in navigator) {
+          navigator.geolocation.watchPosition(
+            (pos) => {
+              const { latitude, longitude, accuracy } = pos.coords;
+              const dist = haversineDistance(
+                latitude,
+                longitude,
+                TARGET_LAT,
+                TARGET_LON
+              );
+              const distRounded = Math.round(dist);
+              const accRounded = Math.round(accuracy);
+
+              hud.textContent = `Du bist ca. ${distRounded} m vom Spot entfernt (GPS ± ${accRounded} m). 
+Geh näher heran und schau dich um – die ZickZack-Galerie sollte in deiner Nähe im Raum erscheinen.`;
+            },
+            () => {
+              hud.textContent =
+                "Standort konnte nicht ermittelt werden. Bitte GPS aktivieren und Browser-Berechtigung erteilen.";
+            },
+            { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+          );
+        } else {
+          hud.textContent =
+            "Dieses Gerät unterstützt keine Geolokation. AR-Galerie kann nicht korrekt ausgerichtet werden.";
+        }
+
+        const backBtn = document.getElementById("backBtn");
+        backBtn.addEventListener("click", () => {
+          if (document.referrer) {
+            history.back();
+          } else {
+            window.location.href = "index.html";
+          }
+        });
+      });
+    </script>
+  </head>
+
+  <body>
+    <div id="titleBar">
+      <span>ARtHunt – ZickZack-Galerie</span>
+      <button id="backBtn">Zurück</button>
+    </div>
+    <div id="hud">Initialisiere AR &amp; Standort…</div>
+
+    <a-scene
+      vr-mode-ui="enabled: false"
+      embedded
+      renderer="logarithmicDepthBuffer: true; antialias: true"
+      arjs="sourceType: webcam; debugUIEnabled: false;"
+    >
+      <!-- AR-Kamera mit GPS -->
+      <a-camera
+        gps-camera="simulateAltitude: 0"
+        position="0 1.6 0"
+      ></a-camera>
+
+      <!-- ZickZack-Galerie am Geo-Spot -->
+      <a-entity
+        gps-entity-place="latitude: 53.70268; longitude: 9.98191"
+        zigzag-gallery="segmentLength: 3; wallHeight: 2.5; wallThickness: 0.12; spacing: 0.7; angle: 45; pictureWidth: 1.6; pictureHeight: 1.0; pictureY: 1.6"
+      >
+      </a-entity>
+    </a-scene>
+  </body>
+</html>

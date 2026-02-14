@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <title>ARtHunt – Geo-AR</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+  <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #020617;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: #000;
+      color: var(--text);
+    }
+    #hud {
+      position: fixed;
+      top: 0.4rem;
+      left: 0.4rem;
+      right: 0.4rem;
+      padding: 0.45rem 0.6rem;
+      border-radius: 999px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: radial-gradient(
+          circle at top left,
+          rgba(34, 197, 94, 0.3),
+          transparent 60%
+        ),
+        rgba(15, 23, 42, 0.96);
+      backdrop-filter: blur(14px);
+      z-index: 5;
+      font-size: 0.8rem;
+    }
+    #hud .title {
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+    #hud .subtitle {
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+    #hud button {
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      background: rgba(15, 23, 42, 0.96);
+      color: var(--text);
+      padding: 0.25rem 0.7rem;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+    #hud button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    #msg {
+      position: fixed;
+      left: 50%;
+      bottom: 0.5rem;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.96);
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      padding: 0.3rem 0.8rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+      z-index: 5;
+      max-width: 90%;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div id="hud">
+    <div>
+      <div id="title" class="title">ARtHunt Geo-AR</div>
+      <div id="subtitle" class="subtitle"></div>
+    </div>
+    <div style="display:flex; gap:0.4rem; align-items:center;"><button id="lockBtn" disabled>Fixieren</button><button id="realignBtn" disabled>Neu ausrichten</button><button onclick="goBack()">Zurück</button></div>
+  </div>
+  <div id="msg">Suche GPS-Position… Bewege dich in die Nähe des Spots.</div>
+
+  <a-scene
+    vr-mode-ui="enabled: false"
+    embedded
+    renderer="logarithmicDepthBuffer: true;"
+    arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false;"
+  >
+    <a-camera gps-camera rotation-reader></a-camera>
+
+    <!-- Container für das Objekt (Model oder Bild) -->
+    <a-entity id="artContainer"></a-entity>
+  </a-scene>
+
+  <script>
+    const qs = new URLSearchParams(location.search);
+    const title = qs.get("title") || "ARtHunt Geo-AR";
+    const subtitle = qs.get("subtitle") || "";
+    const lat = parseFloat(qs.get("lat") || "0");
+    const lon = parseFloat(qs.get("lon") || "0");
+    const mode = qs.get("mode") || "model";
+    const src = qs.get("src") || "";
+    const scaleParam = parseFloat(qs.get("scale") || "1");
+
+    document.getElementById("title").textContent = title;
+    document.getElementById("subtitle").textContent =
+      subtitle || `Ziel: ${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+
+    const artContainer = document.getElementById("artContainer");
+
+    // --- Stabilitäts-Controls: Fixieren / Neu ausrichten ---
+    const lockBtn = document.getElementById("lockBtn");
+    const realignBtn = document.getElementById("realignBtn");
+    let locked = false;
+    let currentEntity = null;
+    let frozenPos = null;
+    let frozenQuat = null;
+
+    function updateButtons(distMeters) {
+      if (!lockBtn || !realignBtn) return;
+      if (locked) {
+        lockBtn.disabled = true;
+        realignBtn.disabled = false;
+        return;
+      }
+      const ok = distMeters < 35; // konservativ: nur Distanz (Accuracy variiert je Gerät)
+      lockBtn.disabled = !ok;
+      realignBtn.disabled = true;
+    }
+
+    function freezeEntity() {
+      if (!currentEntity) return;
+      frozenPos = currentEntity.object3D.position.clone();
+      frozenQuat = currentEntity.object3D.quaternion.clone();
+      currentEntity.removeAttribute("gps-entity-place");
+      currentEntity.object3D.position.copy(frozenPos);
+      currentEntity.object3D.quaternion.copy(frozenQuat);
+      locked = true;
+      document.getElementById("msg").textContent =
+        "Fixiert ✅ (GPS-Drift reduziert). Wenn es wieder driftet: „Neu ausrichten“.";
+      updateButtons(0);
+    }
+
+    function realignEntity() {
+      if (!currentEntity) return;
+      currentEntity.setAttribute(
+        "gps-entity-place",
+        `latitude: ${lat}; longitude: ${lon};`
+      );
+      currentEntity.object3D.position.set(0, 0, 0);
+      currentEntity.object3D.quaternion.set(0, 0, 0, 1);
+      locked = false;
+      document.getElementById("msg").textContent =
+        "Neu ausrichten… Geh kurz ein paar Schritte, schau dich um, und tippe dann wieder auf „Fixieren“.";
+    }
+
+    lockBtn?.addEventListener("click", freezeEntity);
+    realignBtn?.addEventListener("click", realignEntity);
+
+
+    window.addEventListener("load", () => {
+      if (!src) {
+        document.getElementById("msg").textContent =
+          "Kein AR-Inhalt definiert.";
+        return;
+      }
+
+      if (mode === "image") {
+        const img = document.createElement("a-image");
+        img.setAttribute("gps-entity-place", `latitude: ${lat}; longitude: ${lon};`);
+        img.setAttribute("src", src);
+        img.setAttribute("look-at", "[gps-camera]");
+        const s = scaleParam || 4;
+        img.setAttribute("scale", `${s} ${s} ${s}`);
+        artContainer.appendChild(img);
+        currentEntity = img;
+      } else {
+        const model = document.createElement("a-entity");
+        model.setAttribute(
+          "gps-entity-place",
+          `latitude: ${lat}; longitude: ${lon};`
+        );
+        model.setAttribute("gltf-model", src);
+        const s = scaleParam || 1;
+        model.setAttribute("scale", `${s} ${s} ${s}`);
+        artContainer.appendChild(model);
+        currentEntity = model;
+      }
+    });
+
+    window.addEventListener("gps-camera-update-position", (e) => {
+      const pos = e.detail.position;
+      const d = distanceMeters(pos.latitude, pos.longitude, lat, lon);
+      updateButtons(d);
+      document.getElementById("msg").textContent = locked
+        ? `Fixiert ✅ (Du bist ca. ${d.toFixed(0)} m vom Spot entfernt).`
+        : `Du bist ca. ${d.toFixed(0)} m vom Spot entfernt. Schau dich um – das Objekt sollte in der Nähe erscheinen.`;
+    });
+      document.getElementById(
+        "msg"
+      ).textContent = `Du bist ca. ${d.toFixed(
+        0
+      )} m vom Spot entfernt. Schau dich um – das Objekt sollte in der Nähe erscheinen.`;
+    });
+
+    function distanceMeters(lat1, lon1, lat2, lon2) {
+      const R = 6371000;
+      const toRad = (v) => (v * Math.PI) / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) *
+          Math.cos(toRad(lat2)) *
+          Math.sin(dLon / 2) *
+          Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    function goBack() {
+      if (document.referrer) {
+        history.back();
+      } else {
+        location.href = "./";
+      }
+    }
+    window.goBack = goBack;
+  </script>
+</body>
+</html>

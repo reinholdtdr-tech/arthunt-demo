@@ -1,286 +1,376 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="de">
-  <head>
-    <meta charset="utf-8" />
-    <title>ARtHunt – Karussell-Galerie</title>
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, user-scalable=no"
-    />
-    <style>
-      body {
-        margin: 0;
-        overflow: hidden;
-        background: #000;
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-          sans-serif;
-      }
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Präsentations-Notizen (bis 15)</title>
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --card: #121a24;
+      --text: #eaf2ff;
+      --muted: #93a4bd;
+      --accent: #4aa3ff;
+      --border: rgba(255,255,255,0.10);
+      --shadow: 0 10px 30px rgba(0,0,0,0.35);
+      --radius: 18px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: radial-gradient(1200px 800px at 20% 10%, #122238, var(--bg));
+      color: var(--text);
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+    }
+    .app {
+      width: min(920px, 100%);
+      display: grid;
+      gap: 12px;
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: rgba(18,26,36,0.75);
+      backdrop-filter: blur(10px);
+      box-shadow: var(--shadow);
+    }
+    .left, .right { display:flex; align-items:center; gap:10px; flex-wrap: wrap; }
+    .badge {
+      font-size: 12px;
+      color: var(--muted);
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+    }
+    button {
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform .05s ease, background .2s ease;
+      user-select: none;
+      touch-action: manipulation;
+    }
+    button:active { transform: scale(0.98); }
+    button.primary {
+      background: rgba(74,163,255,0.18);
+      border-color: rgba(74,163,255,0.35);
+    }
+    button.danger {
+      background: rgba(255,74,74,0.12);
+      border-color: rgba(255,74,74,0.35);
+    }
+    button:disabled {
+      opacity: .45;
+      cursor: not-allowed;
+    }
 
-      #hud {
-        position: fixed;
-        left: 50%;
-        bottom: 1.5rem;
-        transform: translateX(-50%);
-        padding: 0.6rem 1.2rem;
-        border-radius: 999px;
-        background: rgba(0, 0, 0, 0.7);
-        color: #f5f5f5;
-        font-size: 0.8rem;
-        text-align: center;
-        max-width: 90vw;
-      }
+    .card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: rgba(18,26,36,0.75);
+      backdrop-filter: blur(10px);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
 
-      #titleBar {
-        position: fixed;
-        left: 0.75rem;
-        right: 0.75rem;
-        top: 0.75rem;
-        padding: 0.6rem 1rem;
-        border-radius: 999px;
-        background: linear-gradient(90deg, #141e30, #243b55);
-        color: #fff;
-        font-size: 0.9rem;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 1rem;
-      }
+    .viewer {
+      padding: 18px 18px 10px;
+      min-height: 55vh;
+      display: grid;
+      gap: 10px;
+      position: relative;
+      touch-action: pan-y;
+    }
+    .title {
+      font-weight: 650;
+      font-size: 18px;
+      color: var(--text);
+      opacity: 0.95;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      border-radius: 14px;
+      padding: 10px 12px;
+      outline: none;
+      width: 100%;
+    }
+    .note {
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      border-radius: 16px;
+      padding: 14px 14px;
+      outline: none;
+      width: 100%;
+      resize: none;
+      min-height: 42vh;
+      line-height: 1.25;
+      color: var(--text);
+    }
 
-      #titleBar span {
-        font-weight: 600;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 14px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .hint {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .dotbar {
+      display:flex;
+      gap:6px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .dot {
+      width: 10px; height: 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.06);
+    }
+    .dot.active {
+      background: rgba(74,163,255,0.70);
+      border-color: rgba(74,163,255,0.90);
+      box-shadow: 0 0 0 3px rgba(74,163,255,0.18);
+    }
 
-      #backBtn {
-        border: none;
-        border-radius: 999px;
-        padding: 0.4rem 0.9rem;
-        font-size: 0.8rem;
-        background: rgba(255, 255, 255, 0.12);
-        color: #fff;
-      }
-    
-
-      .actionBtn {
-        border: none;
-        border-radius: 999px;
-        padding: 0.4rem 0.9rem;
-        font-size: 0.8rem;
-        background: rgba(255, 255, 255, 0.12);
-        color: #fff;
-        cursor: pointer;
-      }
-      .actionBtn:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
-</style>
-
-    <!-- A-Frame + AR.js -->
-    <script src="https://aframe.io/releases/1.4.1/aframe.min.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
-
-    <script>
-      // Liste ALLER Bilder im Karussell
-      // (Dateien müssen im selben Ordner wie diese HTML liegen)
-      const CAROUSEL_IMAGES = [
-        "20251102_1707_Brücke im Rembrandt-Stil_remix_01k92n2vsqee2rjsqxe12cz19g.png",
-        "20251105_2137_Weihnachtslandschaft à la Van Gogh_simple_compose_01k9avpygheafv8mmb9ycav852.png",
-        "20251102_1618_Van Gogh Stilbrücke_remix_01k92j85azezrrerbzhgw95hgm.png",
-        "20251027_2116_Van Gogh's Prague Impression_simple_compose_01k8kmxe1xefda9a7k536jxjs0 (1).png",
-        "20251105_2134_Weihnachtslandschaft à la van Gogh_simple_compose_01k9avhp31fq3affv1c07y74ta.png",
-        "20251030_1420_Van Gogh's Charles Bridge_remix_01k8tm9crpedysvyykbpw44a7y.png",
-        "20251102_1623_Picasso-Interpretation_remix_01k92jh05me2g9j6prbcntxxfq.png"
-      ];
-
-      // Einfacher Helfer: Entfernung zwischen zwei GPS-Punkten
-      function haversineDistance(lat1, lon1, lat2, lon2) {
-        const R = 6371000; // m
-        const toRad = (v) => (v * Math.PI) / 180;
-        const dLat = toRad(lat2 - lat1);
-        const dLon = toRad(lon2 - lon1);
-        const a =
-          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-          Math.cos(toRad(lat1)) *
-            Math.cos(toRad(lat2)) *
-            Math.sin(dLon / 2) *
-            Math.sin(dLon / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c;
-      }
-
-      // A-Frame Komponente: Karussell aufbauen
-      AFRAME.registerComponent("carousel-loader", {
-        schema: {
-          radius: { type: "number", default: 6 },
-          height: { type: "number", default: 1.8 },
-          planeWidth: { type: "number", default: 2.2 },
-          planeHeight: { type: "number", default: 1.5 }
-        },
-        init: function () {
-          const el = this.el;
-          const data = this.data;
-          const center = document.createElement("a-entity");
-          center.setAttribute("id", "carousel-center");
-          center.setAttribute("position", `0 ${data.height} 0`);
-          el.appendChild(center);
-
-          const count = CAROUSEL_IMAGES.length;
-          CAROUSEL_IMAGES.forEach((src, i) => {
-            const angle = (i / count) * Math.PI * 2;
-            const x = Math.cos(angle) * data.radius;
-            const z = Math.sin(angle) * data.radius;
-
-            const plane = document.createElement("a-plane");
-            plane.setAttribute("width", data.planeWidth);
-            plane.setAttribute("height", data.planeHeight);
-            plane.setAttribute("material", `src: url(${src}); side: double`);
-            plane.setAttribute("position", `${x} ${data.height} ${z}`);
-            // Bilder schauen zum Zentrum des Karussells
-            plane.setAttribute("look-at", "#carousel-center");
-            el.appendChild(plane);
-          });
-        }
-      });
-
-      // HUD-Aktualisierung (Entfernung zum Spot)
-      document.addEventListener("DOMContentLoaded", () => {
-        const hud = document.getElementById("hud");
-        const TARGET_LAT = 53.703157;
-        const TARGET_LON = 9.983786;
-
-        if ("geolocation" in navigator) {
-          navigator.geolocation.watchPosition(
-            (pos) => {
-              const { latitude, longitude, accuracy } = pos.coords;
-              const dist = haversineDistance(
-                latitude,
-                longitude,
-                TARGET_LAT,
-                TARGET_LON
-              );
-              const distRounded = Math.round(dist);
-              const accRounded = Math.round(accuracy);
-              hud.textContent = locked
-                ? `Fixiert ✅ (Du bist ca. ${distRounded} m vom Spot entfernt, GPS ± ${accRounded} m).`
-                : `Du bist ca. ${distRounded} m vom Spot entfernt (GPS ± ${accRounded} m). Geh näher heran, schau dich um und tippe auf „Fixieren“, sobald es stabil wirkt.`;
-            },
-            () => {
-              hud.textContent =
-                "Standort konnte nicht ermittelt werden. Bitte GPS aktivieren und Browser Berechtigung erteilen.";
-            },
-            { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
-          );
-        } else {
-          hud.textContent =
-            "Dieses Gerät unterstützt keine Geolokation. AR-Karussell kann nicht korrekt ausgerichtet werden.";
-        }
-
-        
-        // --- Stabilitäts-Controls: Fixieren / Neu ausrichten ---
-        const root = document.getElementById("carousel-root");
-        const lockBtn = document.getElementById("lockBtn");
-        const realignBtn = document.getElementById("realignBtn");
-
-        // gps-entity-place als String (AR.js akzeptiert beides, wir setzen String)
-        const gpsAttrString = `latitude: ${TARGET_LAT}; longitude: ${TARGET_LON}`;
-
-        let locked = false;
-        let frozenPos = null;
-        let frozenQuat = null;
-
-        function updateButtons(dist, accuracy) {
-          if (!lockBtn || !realignBtn) return;
-          if (locked) {
-            lockBtn.disabled = true;
-            realignBtn.disabled = false;
-            return;
-          }
-          // Heuristik: nah genug + GPS nicht komplett wild
-          const ok = dist < 35 && accuracy < 25;
-          lockBtn.disabled = !ok;
-          realignBtn.disabled = true;
-        }
-
-        lockBtn?.addEventListener("click", () => {
-          if (locked) return;
-
-          // Pose einfrieren
-          frozenPos = root.object3D.position.clone();
-          frozenQuat = root.object3D.quaternion.clone();
-
-          // Entkoppeln vom GPS-Re-Ankern
-          root.removeAttribute("gps-entity-place");
-
-          // Pose wieder setzen (removeAttribute kann intern Werte resetten)
-          root.object3D.position.copy(frozenPos);
-          root.object3D.quaternion.copy(frozenQuat);
-
-          locked = true;
-          hud.textContent =
-            "Fixiert ✅ (GPS-Drift reduziert). Wenn es wieder driftet: „Neu ausrichten“.";
-          updateButtons(0, 0);
-        });
-
-        realignBtn?.addEventListener("click", () => {
-          // GPS-Anker wieder aktivieren
-          root.setAttribute("gps-entity-place", gpsAttrString);
-
-          // Reset lokale Pose, damit AR.js sauber neu ansetzt
-          root.object3D.position.set(0, 0, 0);
-          root.object3D.quaternion.set(0, 0, 0, 1);
-
-          locked = false;
-          hud.textContent =
-            "Neu ausrichten… Geh kurz ein paar Schritte, schau dich um, und tippe dann wieder auf „Fixieren“.";
-          // Buttons werden durch GPS-Updates wieder freigeschaltet
-        });
-
-
-        // Back-Button, falls aus deiner Haupt-App verlinkt
-        const backBtn = document.getElementById("backBtn");
-        backBtn.addEventListener("click", () => {
-          if (document.referrer) {
-            history.back();
-          } else {
-            window.location.href = "index.html";
-          }
-        });
-      });
-    </script>
-  </head>
-
-  <body>
-    <div id="titleBar">
-      <span>ARtHunt – Karussell-Galerie</span>
-      <div style="display:flex; gap:0.5rem; align-items:center;"><button id="lockBtn" class="actionBtn" disabled>Fixieren</button><button id="realignBtn" class="actionBtn" disabled>Neu ausrichten</button><button id="backBtn" class="actionBtn">Zurück</button></div>
+    @media (max-width: 520px) {
+      .viewer { min-height: 60vh; }
+      button { padding: 10px 10px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="topbar">
+      <div class="left">
+        <button id="prevBtn" title="Vorherige Notiz (←)">←</button>
+        <button id="nextBtn" title="Nächste Notiz (→)">→</button>
+        <span class="badge" id="pageBadge">Seite 1 / 15</span>
+      </div>
+      <div class="right">
+        <button class="primary" id="newBtn" title="Diese Seite leeren">Seite leeren</button>
+        <button class="danger" id="wipeAllBtn" title="ALLE 15 Seiten löschen">Alles löschen</button>
+      </div>
     </div>
-    <div id="hud">Initialisiere AR &amp; Standort…</div>
 
-    <a-scene
-      vr-mode-ui="enabled: false"
-      embedded
-      renderer="logarithmicDepthBuffer: true; antialias: true"
-      arjs="sourceType: webcam; debugUIEnabled: false;"
-    >
-      <!-- AR-Kamera mit GPS -->
-      <a-camera
-        id="user-camera"
-        gps-camera="simulateAltitude: 0"
-        rotation-reader
-        position="0 1.6 0"
-      ></a-camera>
+    <div class="card" id="swipeArea">
+      <div class="viewer">
+        <input class="title" id="titleInput" placeholder="Titel (optional) – z.B. Folie 1" maxlength="60" />
+        <textarea class="note" id="noteInput" placeholder="Notiztext… (wird automatisch gespeichert)"></textarea>
+      </div>
+      <div class="footer">
+        <div class="hint">
+          <span id="stats">0 Wörter • Schrift: —</span>
+          <span class="badge">Swipe ⇆ oder Pfeiltasten</span>
+        </div>
+        <div class="dotbar" id="dotbar" aria-label="Seitenanzeige"></div>
+      </div>
+    </div>
+  </div>
 
-      <!-- Karussell am Geo-Spot -->
-      <a-entity
-        id="carousel-root"
-        gps-entity-place="latitude: 53.703157; longitude: 9.983786"
-        carousel-loader="radius: 17; height: 2; planeWidth: 4.8; planeHeight: 3.4"
-        animation="property: rotation; to: 0 360 0; loop: true; dur: 10000; easing: linear"
-      >
-      </a-entity>
-    </a-scene>
-  </body>
+  <script>
+    // --- Konfiguration ---
+    const MAX_PAGES = 15;
+    const STORAGE_KEY = "present-notes-v1";
+
+    // Schriftgrößen-Logik:
+    // - Maximalgröße (bei sehr wenig Text)
+    // - Minimalgröße (bei viel Text)
+    // - Dazwischen interpolieren wir anhand der Wortzahl
+    const FONT_MAX_PX = 44;
+    const FONT_MIN_PX = 18;
+
+    // Wortzahl-Schwellen, ab wann wir runter skalieren
+    const WORDS_EASY = 30;   // <= 30 Wörter: sehr groß
+    const WORDS_HARD = 180;  // >= 180 Wörter: minimum
+
+    // --- State ---
+    let pageIndex = 0;
+    let pages = Array.from({ length: MAX_PAGES }, () => ({ title: "", text: "" }));
+
+    // --- Elemente ---
+    const prevBtn = document.getElementById("prevBtn");
+    const nextBtn = document.getElementById("nextBtn");
+    const newBtn = document.getElementById("newBtn");
+    const wipeAllBtn = document.getElementById("wipeAllBtn");
+
+    const pageBadge = document.getElementById("pageBadge");
+    const titleInput = document.getElementById("titleInput");
+    const noteInput = document.getElementById("noteInput");
+    const stats = document.getElementById("stats");
+    const dotbar = document.getElementById("dotbar");
+    const swipeArea = document.getElementById("swipeArea");
+
+    // --- Storage ---
+    function load() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length === MAX_PAGES) {
+          pages = parsed.map(p => ({
+            title: typeof p.title === "string" ? p.title : "",
+            text: typeof p.text === "string" ? p.text : ""
+          }));
+        }
+      } catch (_) {}
+    }
+    function save() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(pages));
+    }
+
+    // --- Helpers ---
+    function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
+
+    function wordCount(text) {
+      const t = (text || "").trim();
+      if (!t) return 0;
+      return t.split(/\s+/).length;
+    }
+
+    function fontSizeForWords(w) {
+      // Mappe WORDS_EASY..WORDS_HARD auf 0..1
+      const t = clamp((w - WORDS_EASY) / (WORDS_HARD - WORDS_EASY), 0, 1);
+      // Interpolation: 0 => max, 1 => min
+      return Math.round(FONT_MAX_PX + (FONT_MIN_PX - FONT_MAX_PX) * t);
+    }
+
+    function updateFontAndStats() {
+      const w = wordCount(noteInput.value);
+      const px = fontSizeForWords(w);
+
+      noteInput.style.fontSize = px + "px";
+      stats.textContent = `${w} Wörter • Schrift: ${px}px`;
+    }
+
+    function renderDots() {
+      dotbar.innerHTML = "";
+      for (let i = 0; i < MAX_PAGES; i++) {
+        const d = document.createElement("div");
+        d.className = "dot" + (i === pageIndex ? " active" : "");
+        d.title = `Seite ${i + 1}`;
+        d.addEventListener("click", () => goTo(i));
+        dotbar.appendChild(d);
+      }
+    }
+
+    function render() {
+      pageBadge.textContent = `Seite ${pageIndex + 1} / ${MAX_PAGES}`;
+      titleInput.value = pages[pageIndex].title;
+      noteInput.value = pages[pageIndex].text;
+
+      prevBtn.disabled = pageIndex === 0;
+      nextBtn.disabled = pageIndex === MAX_PAGES - 1;
+
+      renderDots();
+      updateFontAndStats();
+    }
+
+    function goTo(i) {
+      pageIndex = clamp(i, 0, MAX_PAGES - 1);
+      render();
+    }
+
+    function next() { goTo(pageIndex + 1); }
+    function prev() { goTo(pageIndex - 1); }
+
+    // --- Events: Input (autosave) ---
+    let saveTimer = null;
+    function scheduleSave() {
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => save(), 120);
+    }
+
+    titleInput.addEventListener("input", () => {
+      pages[pageIndex].title = titleInput.value;
+      scheduleSave();
+    });
+
+    noteInput.addEventListener("input", () => {
+      pages[pageIndex].text = noteInput.value;
+      updateFontAndStats();
+      scheduleSave();
+    });
+
+    // --- Buttons ---
+    prevBtn.addEventListener("click", prev);
+    nextBtn.addEventListener("click", next);
+
+    newBtn.addEventListener("click", () => {
+      pages[pageIndex] = { title: "", text: "" };
+      save();
+      render();
+      noteInput.focus();
+    });
+
+    wipeAllBtn.addEventListener("click", () => {
+      const ok = confirm("Wirklich ALLE 15 Seiten löschen?");
+      if (!ok) return;
+      pages = Array.from({ length: MAX_PAGES }, () => ({ title: "", text: "" }));
+      pageIndex = 0;
+      save();
+      render();
+      noteInput.focus();
+    });
+
+    // --- Keyboard navigation ---
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowLeft") prev();
+      if (e.key === "ArrowRight") next();
+    });
+
+    // --- Swipe navigation (Touch) ---
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touching = false;
+
+    swipeArea.addEventListener("touchstart", (e) => {
+      if (!e.touches || e.touches.length !== 1) return;
+      touching = true;
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+
+    swipeArea.addEventListener("touchend", (e) => {
+      if (!touching) return;
+      touching = false;
+      const t = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0] : null;
+      if (!t) return;
+
+      const dx = t.clientX - touchStartX;
+      const dy = t.clientY - touchStartY;
+
+      // Nur horizontale Swipes
+      if (Math.abs(dx) < 45) return;
+      if (Math.abs(dy) > Math.abs(dx) * 0.9) return;
+
+      if (dx < 0) next();
+      else prev();
+    }, { passive: true });
+
+    // --- Init ---
+    load();
+    render();
+  </script>
+</body>
 </html>

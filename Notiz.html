@@ -3,159 +3,172 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Präsentations-Notizen (bis 15)</title>
+  <title>Präsentations-Notizen (15) – Swipe, Präsentationsmodus, JSON</title>
   <style>
-    :root {
-      --bg: #0b0f14;
-      --card: #121a24;
-      --text: #eaf2ff;
-      --muted: #93a4bd;
-      --accent: #4aa3ff;
-      --border: rgba(255,255,255,0.10);
-      --shadow: 0 10px 30px rgba(0,0,0,0.35);
-      --radius: 18px;
+    :root{
+      --bg:#0b0f14; --card:#121a24; --text:#eaf2ff; --muted:#93a4bd;
+      --accent:#4aa3ff; --border:rgba(255,255,255,.10); --shadow:0 10px 30px rgba(0,0,0,.35);
+      --radius:18px;
     }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      background: radial-gradient(1200px 800px at 20% 10%, #122238, var(--bg));
-      color: var(--text);
-      min-height: 100vh;
-      display: grid;
-      place-items: center;
-      padding: 18px;
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      background:radial-gradient(1200px 800px at 20% 10%, #122238, var(--bg));
+      color:var(--text); min-height:100vh; display:grid; place-items:center; padding:18px;
     }
-    .app {
-      width: min(920px, 100%);
-      display: grid;
-      gap: 12px;
+    .app{ width:min(980px,100%); display:grid; gap:12px; }
+    .topbar{
+      display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px;
+      border:1px solid var(--border); border-radius:var(--radius);
+      background:rgba(18,26,36,.75); backdrop-filter:blur(10px); box-shadow:var(--shadow);
+      flex-wrap:wrap;
     }
-    .topbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      padding: 10px 12px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      background: rgba(18,26,36,0.75);
+    .left,.right{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+    .badge{
+      font-size:12px; color:var(--muted);
+      padding:6px 10px; border:1px solid var(--border); border-radius:999px;
+      background:rgba(255,255,255,.04);
+    }
+    button{
+      border:1px solid var(--border); background:rgba(255,255,255,.06); color:var(--text);
+      padding:10px 12px; border-radius:12px; cursor:pointer; transition:transform .05s ease, background .2s ease;
+      user-select:none; touch-action:manipulation;
+    }
+    button:active{transform:scale(.98)}
+    button.primary{ background:rgba(74,163,255,.18); border-color:rgba(74,163,255,.35); }
+    button.danger{ background:rgba(255,74,74,.12); border-color:rgba(255,74,74,.35); }
+    button:disabled{ opacity:.45; cursor:not-allowed; }
+    .card{
+      border:1px solid var(--border); border-radius:var(--radius);
+      background:rgba(18,26,36,.75); backdrop-filter:blur(10px); box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+    .viewer{
+      padding:18px 18px 10px;
+      min-height:60vh;
+      display:grid; gap:10px;
+      position:relative;
+      touch-action:pan-y;
+    }
+    .title{
+      font-weight:650; font-size:18px; color:var(--text); opacity:.95;
+      border:1px solid var(--border); background:rgba(255,255,255,.04);
+      border-radius:14px; padding:10px 12px; outline:none; width:100%;
+    }
+    .noteWrap{
+      position:relative;
+      border:1px solid var(--border);
+      background:rgba(255,255,255,.04);
+      border-radius:16px;
+      padding:0;
+      overflow:hidden;
+      min-height:44vh;
+    }
+    textarea.note{
+      width:100%;
+      height:100%;
+      min-height:44vh;
+      border:0;
+      outline:none;
+      resize:none;
+      padding:14px 14px;
+      background:transparent;
+      color:var(--text);
+      line-height:1.25;
+      /* font-size wird per JS gesetzt */
+    }
+    .footer{
+      display:flex; justify-content:space-between; gap:10px; padding:12px 14px;
+      border-top:1px solid var(--border); color:var(--muted); font-size:12px; align-items:center; flex-wrap:wrap;
+    }
+    .hint{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
+    .dotbar{display:flex; gap:6px; flex-wrap:wrap; align-items:center;}
+    .dot{
+      width:10px; height:10px; border-radius:999px;
+      border:1px solid var(--border); background:rgba(255,255,255,.06);
+      cursor:pointer;
+    }
+    .dot.active{
+      background:rgba(74,163,255,.70);
+      border-color:rgba(74,163,255,.90);
+      box-shadow:0 0 0 3px rgba(74,163,255,.18);
+    }
+
+    /* Hidden measure element for fitting text */
+    .measure {
+      position:absolute;
+      visibility:hidden;
+      left:-99999px; top:-99999px;
+      white-space:pre-wrap;
+      word-break:break-word;
+      overflow-wrap:anywhere;
+    }
+
+    /* --- Präsentationsmodus Overlay --- */
+    .overlay{
+      position:fixed; inset:0;
+      background:#04070b;
+      display:none;
+      z-index:9999;
+    }
+    .overlay.on{display:block;}
+    .pwrap{
+      height:100%;
+      display:grid;
+      grid-template-rows:auto 1fr auto;
+    }
+    .pbar{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:10px; padding:14px 16px;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      background:rgba(255,255,255,.03);
       backdrop-filter: blur(10px);
-      box-shadow: var(--shadow);
+      flex-wrap:wrap;
     }
-    .left, .right { display:flex; align-items:center; gap:10px; flex-wrap: wrap; }
-    .badge {
-      font-size: 12px;
-      color: var(--muted);
-      padding: 6px 10px;
-      border: 1px solid var(--border);
-      border-radius: 999px;
+    .pcontent{
+      padding:22px 22px;
+      display:grid;
+      align-content:center;
+      justify-items:stretch;
+      touch-action:pan-y;
     }
-    button {
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,0.06);
-      color: var(--text);
-      padding: 10px 12px;
-      border-radius: 12px;
-      cursor: pointer;
-      transition: transform .05s ease, background .2s ease;
-      user-select: none;
-      touch-action: manipulation;
+    .ptitle{
+      color:rgba(234,242,255,.95);
+      font-weight:700;
+      font-size:clamp(18px, 3vw, 30px);
+      margin:0 0 14px 0;
+      opacity:.95;
     }
-    button:active { transform: scale(0.98); }
-    button.primary {
-      background: rgba(74,163,255,0.18);
-      border-color: rgba(74,163,255,0.35);
-    }
-    button.danger {
-      background: rgba(255,74,74,0.12);
-      border-color: rgba(255,74,74,0.35);
-    }
-    button:disabled {
-      opacity: .45;
-      cursor: not-allowed;
-    }
-
-    .card {
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      background: rgba(18,26,36,0.75);
-      backdrop-filter: blur(10px);
-      box-shadow: var(--shadow);
-      overflow: hidden;
-    }
-
-    .viewer {
-      padding: 18px 18px 10px;
-      min-height: 55vh;
-      display: grid;
-      gap: 10px;
-      position: relative;
-      touch-action: pan-y;
-    }
-    .title {
-      font-weight: 650;
-      font-size: 18px;
-      color: var(--text);
-      opacity: 0.95;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,0.04);
-      border-radius: 14px;
-      padding: 10px 12px;
-      outline: none;
-      width: 100%;
-    }
-    .note {
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,0.04);
-      border-radius: 16px;
-      padding: 14px 14px;
-      outline: none;
-      width: 100%;
-      resize: none;
-      min-height: 42vh;
-      line-height: 1.25;
-      color: var(--text);
-    }
-
-    .footer {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      padding: 12px 14px;
-      border-top: 1px solid var(--border);
-      color: var(--muted);
-      font-size: 12px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-    .hint {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-    .dotbar {
+    .pnoteBox{
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:22px;
+      background:rgba(255,255,255,.03);
+      padding:18px 18px;
+      min-height:60vh;
       display:flex;
-      gap:6px;
-      flex-wrap: wrap;
-      align-items: center;
+      align-items:center;
+      justify-content:center;
+      overflow:hidden;
     }
-    .dot {
-      width: 10px; height: 10px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,0.06);
+    .pnote{
+      width:100%;
+      white-space:pre-wrap;
+      word-break:break-word;
+      overflow-wrap:anywhere;
+      line-height:1.25;
+      /* font-size set by JS */
     }
-    .dot.active {
-      background: rgba(74,163,255,0.70);
-      border-color: rgba(74,163,255,0.90);
-      box-shadow: 0 0 0 3px rgba(74,163,255,0.18);
+    .pfoot{
+      display:flex; justify-content:space-between; align-items:center; gap:10px;
+      padding:14px 16px;
+      border-top:1px solid rgba(255,255,255,.08);
+      color:rgba(147,164,189,.95);
+      flex-wrap:wrap;
     }
 
-    @media (max-width: 520px) {
-      .viewer { min-height: 60vh; }
-      button { padding: 10px 10px; }
+    @media (max-width:520px){
+      .viewer{min-height:62vh;}
+      button{padding:10px 10px;}
     }
   </style>
 </head>
@@ -166,211 +179,186 @@
         <button id="prevBtn" title="Vorherige Notiz (←)">←</button>
         <button id="nextBtn" title="Nächste Notiz (→)">→</button>
         <span class="badge" id="pageBadge">Seite 1 / 15</span>
+        <span class="badge" id="stats">—</span>
       </div>
       <div class="right">
-        <button class="primary" id="newBtn" title="Diese Seite leeren">Seite leeren</button>
+        <button class="primary" id="presentBtn" title="Präsentationsmodus (P)">Präsentationsmodus</button>
+        <button id="exportBtn" title="JSON exportieren">Export JSON</button>
+        <button id="importBtn" title="JSON importieren">Import JSON</button>
+        <input id="fileInput" type="file" accept="application/json" style="display:none" />
+        <button class="primary" id="clearPageBtn" title="Diese Seite leeren">Seite leeren</button>
         <button class="danger" id="wipeAllBtn" title="ALLE 15 Seiten löschen">Alles löschen</button>
       </div>
     </div>
 
     <div class="card" id="swipeArea">
       <div class="viewer">
-        <input class="title" id="titleInput" placeholder="Titel (optional) – z.B. Folie 1" maxlength="60" />
-        <textarea class="note" id="noteInput" placeholder="Notiztext… (wird automatisch gespeichert)"></textarea>
+        <input class="title" id="titleInput" placeholder="Titel (optional) – z.B. Folie 1" maxlength="80" />
+        <div class="noteWrap" id="noteWrap">
+          <textarea class="note" id="noteInput" placeholder="Notiztext… (wird automatisch gespeichert)"></textarea>
+        </div>
       </div>
       <div class="footer">
         <div class="hint">
-          <span id="stats">0 Wörter • Schrift: —</span>
-          <span class="badge">Swipe ⇆ oder Pfeiltasten</span>
+          <span class="badge">Swipe ⇆ / Pfeiltasten • Präsentation: P • Fullscreen: F</span>
         </div>
         <div class="dotbar" id="dotbar" aria-label="Seitenanzeige"></div>
       </div>
     </div>
   </div>
 
-  <script>
-    // --- Konfiguration ---
-    const MAX_PAGES = 15;
-    const STORAGE_KEY = "present-notes-v1";
+  <!-- Hidden measurer for editor -->
+  <div class="measure" id="measure"></div>
 
-    // Schriftgrößen-Logik:
-    // - Maximalgröße (bei sehr wenig Text)
-    // - Minimalgröße (bei viel Text)
-    // - Dazwischen interpolieren wir anhand der Wortzahl
-    const FONT_MAX_PX = 44;
-    const FONT_MIN_PX = 18;
+  <!-- Präsentationsmodus Overlay -->
+  <div class="overlay" id="overlay" aria-hidden="true">
+    <div class="pwrap" id="pSwipeArea">
+      <div class="pbar">
+        <div class="left">
+          <button id="pPrevBtn">←</button>
+          <button id="pNextBtn">→</button>
+          <span class="badge" id="pBadge">Seite 1 / 15</span>
+        </div>
+        <div class="right">
+          <button id="fullscreenBtn" class="primary" title="Fullscreen (F)">Fullscreen</button>
+          <button id="exitBtn" class="danger" title="Schließen (Esc)">Schließen</button>
+        </div>
+      </div>
 
-    // Wortzahl-Schwellen, ab wann wir runter skalieren
-    const WORDS_EASY = 30;   // <= 30 Wörter: sehr groß
-    const WORDS_HARD = 180;  // >= 180 Wörter: minimum
+      <div class="pcontent">
+        <h2 class="ptitle" id="pTitle"></h2>
+        <div class="pnoteBox" id="pNoteBox">
+          <div class="pnote" id="pNote"></div>
+        </div>
+      </div>
 
-    // --- State ---
-    let pageIndex = 0;
-    let pages = Array.from({ length: MAX_PAGES }, () => ({ title: "", text: "" }));
+      <div class="pfoot">
+        <div class="hint">
+          <span id="pStats">—</span>
+          <span class="badge">Swipe ⇆ / ← → • Esc • F</span>
+        </div>
+      </div>
+    </div>
+  </div>
 
-    // --- Elemente ---
-    const prevBtn = document.getElementById("prevBtn");
-    const nextBtn = document.getElementById("nextBtn");
-    const newBtn = document.getElementById("newBtn");
-    const wipeAllBtn = document.getElementById("wipeAllBtn");
+  <!-- Hidden measurer for presentation -->
+  <div class="measure" id="pMeasure"></div>
 
-    const pageBadge = document.getElementById("pageBadge");
-    const titleInput = document.getElementById("titleInput");
-    const noteInput = document.getElementById("noteInput");
-    const stats = document.getElementById("stats");
-    const dotbar = document.getElementById("dotbar");
-    const swipeArea = document.getElementById("swipeArea");
+<script>
+(() => {
+  // --- Konfiguration ---
+  const MAX_PAGES = 15;
+  const STORAGE_KEY = "present-notes-v2-fit-present-json";
 
-    // --- Storage ---
-    function load() {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return;
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length === MAX_PAGES) {
-          pages = parsed.map(p => ({
-            title: typeof p.title === "string" ? p.title : "",
-            text: typeof p.text === "string" ? p.text : ""
-          }));
-        }
-      } catch (_) {}
-    }
-    function save() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(pages));
-    }
+  // Editor: Font-Range (wird dann auf "passt in Box" gefittet)
+  const EDIT_FONT_MAX = 52;  // groß, aber durch Fit begrenzt
+  const EDIT_FONT_MIN = 14;
 
-    // --- Helpers ---
-    function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
+  // Präsentation: Font-Range
+  const PRES_FONT_MAX = 92;
+  const PRES_FONT_MIN = 18;
 
-    function wordCount(text) {
-      const t = (text || "").trim();
-      if (!t) return 0;
-      return t.split(/\s+/).length;
-    }
+  // --- State ---
+  let pageIndex = 0;
+  let pages = Array.from({ length: MAX_PAGES }, () => ({ title: "", text: "" }));
 
-    function fontSizeForWords(w) {
-      // Mappe WORDS_EASY..WORDS_HARD auf 0..1
-      const t = clamp((w - WORDS_EASY) / (WORDS_HARD - WORDS_EASY), 0, 1);
-      // Interpolation: 0 => max, 1 => min
-      return Math.round(FONT_MAX_PX + (FONT_MIN_PX - FONT_MAX_PX) * t);
-    }
+  // --- Elemente ---
+  const prevBtn = document.getElementById("prevBtn");
+  const nextBtn = document.getElementById("nextBtn");
+  const clearPageBtn = document.getElementById("clearPageBtn");
+  const wipeAllBtn = document.getElementById("wipeAllBtn");
+  const presentBtn = document.getElementById("presentBtn");
 
-    function updateFontAndStats() {
-      const w = wordCount(noteInput.value);
-      const px = fontSizeForWords(w);
+  const exportBtn = document.getElementById("exportBtn");
+  const importBtn = document.getElementById("importBtn");
+  const fileInput = document.getElementById("fileInput");
 
-      noteInput.style.fontSize = px + "px";
-      stats.textContent = `${w} Wörter • Schrift: ${px}px`;
-    }
+  const pageBadge = document.getElementById("pageBadge");
+  const titleInput = document.getElementById("titleInput");
+  const noteInput = document.getElementById("noteInput");
+  const noteWrap = document.getElementById("noteWrap");
+  const stats = document.getElementById("stats");
+  const dotbar = document.getElementById("dotbar");
+  const swipeArea = document.getElementById("swipeArea");
 
-    function renderDots() {
-      dotbar.innerHTML = "";
-      for (let i = 0; i < MAX_PAGES; i++) {
-        const d = document.createElement("div");
-        d.className = "dot" + (i === pageIndex ? " active" : "");
-        d.title = `Seite ${i + 1}`;
-        d.addEventListener("click", () => goTo(i));
-        dotbar.appendChild(d);
+  const measure = document.getElementById("measure");
+  const overlay = document.getElementById("overlay");
+  const pPrevBtn = document.getElementById("pPrevBtn");
+  const pNextBtn = document.getElementById("pNextBtn");
+  const pBadge = document.getElementById("pBadge");
+  const pTitle = document.getElementById("pTitle");
+  const pNote = document.getElementById("pNote");
+  const pNoteBox = document.getElementById("pNoteBox");
+  const pStats = document.getElementById("pStats");
+  const exitBtn = document.getElementById("exitBtn");
+  const fullscreenBtn = document.getElementById("fullscreenBtn");
+  const pSwipeArea = document.getElementById("pSwipeArea");
+  const pMeasure = document.getElementById("pMeasure");
+
+  // --- Utils ---
+  const clamp = (n,a,b) => Math.max(a, Math.min(b,n));
+  const wordCount = (text) => {
+    const t = (text || "").trim();
+    if (!t) return 0;
+    return t.split(/\s+/).length;
+  };
+  function safeFileName(s) {
+    return (s || "notizen").replace(/[^\w\-]+/g, "_").slice(0, 40) || "notizen";
+  }
+
+  // --- Storage ---
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length === MAX_PAGES) {
+        pages = parsed.map(p => ({
+          title: typeof p.title === "string" ? p.title : "",
+          text: typeof p.text === "string" ? p.text : ""
+        }));
       }
+    } catch (_) {}
+  }
+  function save() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(pages));
+  }
+
+  // --- Dots ---
+  function renderDots() {
+    dotbar.innerHTML = "";
+    for (let i = 0; i < MAX_PAGES; i++) {
+      const d = document.createElement("div");
+      d.className = "dot" + (i === pageIndex ? " active" : "");
+      d.title = `Seite ${i + 1}`;
+      d.addEventListener("click", () => goTo(i));
+      dotbar.appendChild(d);
     }
+  }
 
-    function render() {
-      pageBadge.textContent = `Seite ${pageIndex + 1} / ${MAX_PAGES}`;
-      titleInput.value = pages[pageIndex].title;
-      noteInput.value = pages[pageIndex].text;
+  // --- Fitting: set font so the WHOLE text fits inside a box ---
+  // Works by measuring rendered text in a hidden div with same width/padding and line-height,
+  // then binary searching font-size.
+  function fitTextToBox({
+    text,
+    boxEl,          // element whose inner content area we fit into
+    measureEl,      // hidden div
+    fontMin,
+    fontMax,
+    lineHeight = 1.25,
+    paddingX = 0,
+    paddingY = 0,
+    setFontPx,      // callback(fontPx)
+    extraStyles = {} // e.g. fontWeight for title
+  }) {
+    const boxRect = boxEl.getBoundingClientRect();
+    const targetW = Math.max(50, Math.floor(boxRect.width - paddingX));
+    const targetH = Math.max(50, Math.floor(boxRect.height - paddingY));
 
-      prevBtn.disabled = pageIndex === 0;
-      nextBtn.disabled = pageIndex === MAX_PAGES - 1;
+    // Configure measurer
+    measureEl.style.width = targetW + "px";
+    measureEl.style.lineHeight = String(lineHeight);
+    measureEl.style.fontFamily = getComputedStyle(boxEl).fontFamily || "system-ui";
+    measureEl.style.fontWeight = extraStyles.fontWeight || "400";
 
-      renderDots();
-      updateFontAndStats();
-    }
-
-    function goTo(i) {
-      pageIndex = clamp(i, 0, MAX_PAGES - 1);
-      render();
-    }
-
-    function next() { goTo(pageIndex + 1); }
-    function prev() { goTo(pageIndex - 1); }
-
-    // --- Events: Input (autosave) ---
-    let saveTimer = null;
-    function scheduleSave() {
-      clearTimeout(saveTimer);
-      saveTimer = setTimeout(() => save(), 120);
-    }
-
-    titleInput.addEventListener("input", () => {
-      pages[pageIndex].title = titleInput.value;
-      scheduleSave();
-    });
-
-    noteInput.addEventListener("input", () => {
-      pages[pageIndex].text = noteInput.value;
-      updateFontAndStats();
-      scheduleSave();
-    });
-
-    // --- Buttons ---
-    prevBtn.addEventListener("click", prev);
-    nextBtn.addEventListener("click", next);
-
-    newBtn.addEventListener("click", () => {
-      pages[pageIndex] = { title: "", text: "" };
-      save();
-      render();
-      noteInput.focus();
-    });
-
-    wipeAllBtn.addEventListener("click", () => {
-      const ok = confirm("Wirklich ALLE 15 Seiten löschen?");
-      if (!ok) return;
-      pages = Array.from({ length: MAX_PAGES }, () => ({ title: "", text: "" }));
-      pageIndex = 0;
-      save();
-      render();
-      noteInput.focus();
-    });
-
-    // --- Keyboard navigation ---
-    window.addEventListener("keydown", (e) => {
-      if (e.key === "ArrowLeft") prev();
-      if (e.key === "ArrowRight") next();
-    });
-
-    // --- Swipe navigation (Touch) ---
-    let touchStartX = 0;
-    let touchStartY = 0;
-    let touching = false;
-
-    swipeArea.addEventListener("touchstart", (e) => {
-      if (!e.touches || e.touches.length !== 1) return;
-      touching = true;
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
-    }, { passive: true });
-
-    swipeArea.addEventListener("touchend", (e) => {
-      if (!touching) return;
-      touching = false;
-      const t = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0] : null;
-      if (!t) return;
-
-      const dx = t.clientX - touchStartX;
-      const dy = t.clientY - touchStartY;
-
-      // Nur horizontale Swipes
-      if (Math.abs(dx) < 45) return;
-      if (Math.abs(dy) > Math.abs(dx) * 0.9) return;
-
-      if (dx < 0) next();
-      else prev();
-    }, { passive: true });
-
-    // --- Init ---
-    load();
-    render();
-  </script>
-</body>
-</html>
+    // Ensure there is always something measurab

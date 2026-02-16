@@ -361,4 +361,294 @@
     measureEl.style.fontFamily = getComputedStyle(boxEl).fontFamily || "system-ui";
     measureEl.style.fontWeight = extraStyles.fontWeight || "400";
 
-    // Ensure there is always something measurab
+    // Ensure there is always something measurable
+    const content = (text && text.length) ? text : " "; // single space
+    measureEl.textContent = content;
+
+    // Helper to test a font size
+    const fits = (px) => {
+      measureEl.style.fontSize = px + "px";
+      // offsetHeight gives layout height
+      const h = measureEl.offsetHeight;
+      // Sometimes very long single words cause overflow horizontally; we use word-break so ok
+      return h <= targetH;
+    };
+
+    // Binary search
+    let lo = fontMin, hi = fontMax, best = fontMin;
+    while (lo <= hi) {
+      const mid = Math.floor((lo + hi) / 2);
+      if (fits(mid)) { best = mid; lo = mid + 1; }
+      else { hi = mid - 1; }
+    }
+
+    setFontPx(best);
+    return best;
+  }
+
+  function fitEditorNote() {
+    // Fit inside textarea viewport area (approx: noteWrap minus padding, using computed padding)
+    // We'll fit based on noteWrap size, but account for textarea padding.
+    const taStyle = getComputedStyle(noteInput);
+    const padX = parseFloat(taStyle.paddingLeft) + parseFloat(taStyle.paddingRight);
+    const padY = parseFloat(taStyle.paddingTop) + parseFloat(taStyle.paddingBottom);
+
+    const fontPx = fitTextToBox({
+      text: noteInput.value,
+      boxEl: noteWrap,
+      measureEl: measure,
+      fontMin: EDIT_FONT_MIN,
+      fontMax: EDIT_FONT_MAX,
+      lineHeight: 1.25,
+      paddingX: padX,
+      paddingY: padY,
+      setFontPx: (px) => noteInput.style.fontSize = px + "px",
+    });
+
+    const w = wordCount(noteInput.value);
+    stats.textContent = `${w} Wörter • Schrift: ${fontPx}px`;
+  }
+
+  function fitPresentationText() {
+    const text = pNote.textContent;
+    const fontPx = fitTextToBox({
+      text,
+      boxEl: pNoteBox,
+      measureEl: pMeasure,
+      fontMin: PRES_FONT_MIN,
+      fontMax: PRES_FONT_MAX,
+      lineHeight: 1.25,
+      paddingX: 36, // pNoteBox padding approx
+      paddingY: 36,
+      setFontPx: (px) => pNote.style.fontSize = px + "px",
+    });
+    const w = wordCount(text);
+    pStats.textContent = `${w} Wörter • Schrift: ${fontPx}px`;
+  }
+
+  // --- Navigation ---
+  function goTo(i) {
+    pageIndex = clamp(i, 0, MAX_PAGES - 1);
+    render();
+  }
+  const next = () => goTo(pageIndex + 1);
+  const prev = () => goTo(pageIndex - 1);
+
+  // --- Render ---
+  function render() {
+    pageBadge.textContent = `Seite ${pageIndex + 1} / ${MAX_PAGES}`;
+    titleInput.value = pages[pageIndex].title;
+    noteInput.value = pages[pageIndex].text;
+
+    prevBtn.disabled = pageIndex === 0;
+    nextBtn.disabled = pageIndex === MAX_PAGES - 1;
+
+    renderDots();
+    // delay a tick to ensure layout sizes are correct
+    requestAnimationFrame(() => fitEditorNote());
+
+    if (overlay.classList.contains("on")) {
+      renderPresentation();
+    }
+  }
+
+  function renderPresentation() {
+    pBadge.textContent = `Seite ${pageIndex + 1} / ${MAX_PAGES}`;
+    pTitle.textContent = pages[pageIndex].title || `Seite ${pageIndex + 1}`;
+    pNote.textContent = pages[pageIndex].text || " ";
+    pPrevBtn.disabled = pageIndex === 0;
+    pNextBtn.disabled = pageIndex === MAX_PAGES - 1;
+    requestAnimationFrame(() => fitPresentationText());
+  }
+
+  // --- Autosave ---
+  let saveTimer = null;
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => save(), 120);
+  }
+  titleInput.addEventListener("input", () => {
+    pages[pageIndex].title = titleInput.value;
+    scheduleSave();
+    if (overlay.classList.contains("on")) renderPresentation();
+  });
+  noteInput.addEventListener("input", () => {
+    pages[pageIndex].text = noteInput.value;
+    fitEditorNote();
+    scheduleSave();
+    if (overlay.classList.contains("on")) renderPresentation();
+  });
+
+  // --- Buttons ---
+  prevBtn.addEventListener("click", prev);
+  nextBtn.addEventListener("click", next);
+
+  clearPageBtn.addEventListener("click", () => {
+    pages[pageIndex] = { title: "", text: "" };
+    save();
+    render();
+    noteInput.focus();
+  });
+
+  wipeAllBtn.addEventListener("click", () => {
+    const ok = confirm("Wirklich ALLE 15 Seiten löschen?");
+    if (!ok) return;
+    pages = Array.from({ length: MAX_PAGES }, () => ({ title: "", text: "" }));
+    pageIndex = 0;
+    save();
+    render();
+    noteInput.focus();
+  });
+
+  // --- JSON Export/Import ---
+  exportBtn.addEventListener("click", () => {
+    const payload = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      maxPages: MAX_PAGES,
+      pages
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    const name = safeFileName(pages[0]?.title || "present_notes");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${name}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 500);
+  });
+
+  importBtn.addEventListener("click", () => fileInput.click());
+
+  fileInput.addEventListener("change", async () => {
+    const f = fileInput.files && fileInput.files[0];
+    fileInput.value = "";
+    if (!f) return;
+    try {
+      const txt = await f.text();
+      const parsed = JSON.parse(txt);
+
+      // Accept either {pages:[...]} or direct array
+      const incomingPages = Array.isArray(parsed) ? parsed : parsed.pages;
+      if (!Array.isArray(incomingPages)) throw new Error("Ungültiges JSON: pages fehlt.");
+
+      const normalized = Array.from({ length: MAX_PAGES }, (_, i) => {
+        const p = incomingPages[i] || {};
+        return {
+          title: typeof p.title === "string" ? p.title : "",
+          text: typeof p.text === "string" ? p.text : ""
+        };
+      });
+
+      pages = normalized;
+      pageIndex = 0;
+      save();
+      render();
+      alert("Import erfolgreich ✅");
+    } catch (e) {
+      alert("Import fehlgeschlagen: " + (e?.message || "Unbekannter Fehler"));
+    }
+  });
+
+  // --- Präsentationsmodus ---
+  function openPresentation() {
+    overlay.classList.add("on");
+    overlay.setAttribute("aria-hidden", "false");
+    renderPresentation();
+  }
+  function closePresentation() {
+    overlay.classList.remove("on");
+    overlay.setAttribute("aria-hidden", "true");
+  }
+  presentBtn.addEventListener("click", openPresentation);
+  exitBtn.addEventListener("click", closePresentation);
+
+  pPrevBtn.addEventListener("click", prev);
+  pNextBtn.addEventListener("click", next);
+
+  // Fullscreen helpers
+  async function toggleFullscreen() {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+      // refit after fullscreen transition
+      setTimeout(() => {
+        fitEditorNote();
+        if (overlay.classList.contains("on")) fitPresentationText();
+      }, 120);
+    } catch (_) {}
+  }
+  fullscreenBtn.addEventListener("click", toggleFullscreen);
+
+  // --- Keyboard shortcuts ---
+  window.addEventListener("keydown", (e) => {
+    const inOverlay = overlay.classList.contains("on");
+
+    if (e.key === "ArrowLeft") prev();
+    if (e.key === "ArrowRight") next();
+
+    if (e.key === "p" || e.key === "P") {
+      if (!inOverlay) openPresentation();
+      else closePresentation();
+    }
+
+    if (e.key === "Escape" && inOverlay) closePresentation();
+
+    if (e.key === "f" || e.key === "F") {
+      // allow fullscreen toggle anywhere
+      toggleFullscreen();
+    }
+  });
+
+  // --- Swipe navigation (Editor + Präsentation) ---
+  function attachSwipe(el) {
+    let startX = 0, startY = 0, touching = false;
+
+    el.addEventListener("touchstart", (e) => {
+      if (!e.touches || e.touches.length !== 1) return;
+      touching = true;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    }, { passive:true });
+
+    el.addEventListener("touchend", (e) => {
+      if (!touching) return;
+      touching = false;
+      const t = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0] : null;
+      if (!t) return;
+
+      const dx = t.clientX - startX;
+      const dy = t.clientY - startY;
+
+      if (Math.abs(dx) < 45) return;
+      if (Math.abs(dy) > Math.abs(dx) * 0.9) return;
+
+      if (dx < 0) next();
+      else prev();
+    }, { passive:true });
+  }
+
+  attachSwipe(swipeArea);
+  attachSwipe(pSwipeArea);
+
+  // --- Refit on resize/orientation change ---
+  let resizeTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      fitEditorNote();
+      if (overlay.classList.contains("on")) fitPresentationText();
+    }, 80);
+  });
+
+  // --- Init ---
+  load();
+  render();
+})();
+</script>
+</body>
+</html>

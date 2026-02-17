@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <title>ARtHunt – Galerie-Raum</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no"
+    />
+
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #000;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+      }
+
+      #hud {
+        position: fixed;
+        left: 50%;
+        bottom: 1.5rem;
+        transform: translateX(-50%);
+        padding: 0.6rem 1.2rem;
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.7);
+        color: #f5f5f5;
+        font-size: 0.8rem;
+        text-align: center;
+        max-width: 90vw;
+        z-index: 5;
+      }
+
+      #titleBar {
+        position: fixed;
+        left: 0.75rem;
+        right: 0.75rem;
+        top: 0.75rem;
+        padding: 0.6rem 1rem;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #141e30, #243b55);
+        color: #fff;
+        font-size: 0.9rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        z-index: 5;
+      }
+
+      #titleBar span {
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      #backBtn {
+        border: none;
+        border-radius: 999px;
+        padding: 0.4rem 0.9rem;
+        font-size: 0.8rem;
+        background: rgba(255, 255, 255, 0.12);
+        color: #fff;
+        cursor: pointer;
+      }
+    
+
+      .actionBtn {
+        border: none;
+        border-radius: 999px;
+        padding: 0.4rem 0.9rem;
+        font-size: 0.8rem;
+        background: rgba(255, 255, 255, 0.12);
+        color: #fff;
+        cursor: pointer;
+      }
+      .actionBtn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+</style>
+
+    <!-- A-Frame + AR.js -->
+    <script src="https://aframe.io/releases/1.4.1/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+
+    <script>
+      // Deine Bilder (Dateinamen müssen im Repo so liegen)
+      const ROOM_IMAGES = [
+        "20251102_1707_Brücke im Rembrandt-Stil_remix_01k92n2vsqee2rjsqxe12cz19g.png",
+        "20251105_2137_Weihnachtslandschaft à la Van Gogh_simple_compose_01k9avpygheafv8mmb9ycav852.png",
+        "20251102_1618_Van Gogh Stilbrücke_remix_01k92j85azezrrerbzhgw95hgm.png",
+        "20251027_2116_Van Gogh's Prague Impression_simple_compose_01k8kmxe1xefda9a7k536jxjs0 (1).png",
+        "20251105_2134_Weihnachtslandschaft à la van Gogh_simple_compose_01k9avhp31fq3affv1c07y74ta.png",
+        "20251030_1420_Van Gogh's Charles Bridge_remix_01k8tm9crpedysvyykbpw44a7y.png",
+        "20251102_1623_Picasso-Interpretation_remix_01k92jh05me2g9j6prbcntxxfq.png"
+      ];
+
+      // Haversine zur Entfernungsmessung
+      function haversineDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371000;
+        const toRad = v => (v * Math.PI) / 180;
+
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(toRad(lat1)) *
+            Math.cos(toRad(lat2)) *
+            Math.sin(dLon / 2) *
+            Math.sin(dLon / 2);
+
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+      }
+
+      // White-Cube-Galerie-Raum
+      AFRAME.registerComponent("gallery-room", {
+        schema: {
+          size: { type: "number", default: 6 }, // Raumgröße (Breite/Tiefe in m)
+          height: { type: "number", default: 3 }, // Wandhöhe
+          wallThickness: { type: "number", default: 0.1 },
+          pictureHeight: { type: "number", default: 1.7 }, // Augenhöhe Mitte Bild
+          pictureWidth: { type: "number", default: 1.4 },
+          pictureHeightPlane: { type: "number", default: 0.9 }
+        },
+        init: function () {
+          const el = this.el;
+          const d = this.data;
+
+          const half = d.size / 2;
+          const h = d.height / 2;
+
+          // ---------- WÄNDE (White Cube, ohne Decke) ----------
+
+          // Vorderwand (Z negativ, öffnet sich nach innen = +Z)
+          const frontWall = document.createElement("a-box");
+          frontWall.setAttribute("width", d.size);
+          frontWall.setAttribute("height", d.height);
+          frontWall.setAttribute("depth", d.wallThickness);
+          frontWall.setAttribute("position", `0 ${h} -${half}`);
+          frontWall.setAttribute(
+            "material",
+            "color: #f5f5f5; roughness: 0.9; metalness: 0.0; side: double"
+          );
+          el.appendChild(frontWall);
+
+          // Rückwand (Z positiv, öffnet sich nach innen = -Z)
+          const backWall = document.createElement("a-box");
+          backWall.setAttribute("width", d.size);
+          backWall.setAttribute("height", d.height);
+          backWall.setAttribute("depth", d.wallThickness);
+          backWall.setAttribute("position", `0 ${h} ${half}`);
+          backWall.setAttribute(
+            "material",
+            "color: #f5f5f5; roughness: 0.9; metalness: 0.0; side: double"
+          );
+          el.appendChild(backWall);
+
+          // Linke Wand (X negativ)
+          const leftWall = document.createElement("a-box");
+          leftWall.setAttribute("width", d.size);
+          leftWall.setAttribute("height", d.height);
+          leftWall.setAttribute("depth", d.wallThickness);
+          // gedreht, damit die flache Seite nach innen zeigt
+          leftWall.setAttribute("rotation", `0 90 0`);
+          leftWall.setAttribute("position", `-${half} ${h} 0`);
+          leftWall.setAttribute(
+            "material",
+            "color: #f5f5f5; roughness: 0.9; metalness: 0.0; side: double"
+          );
+          el.appendChild(leftWall);
+
+          // Rechte Wand (X positiv)
+          const rightWall = document.createElement("a-box");
+          rightWall.setAttribute("width", d.size);
+          rightWall.setAttribute("height", d.height);
+          rightWall.setAttribute("depth", d.wallThickness);
+          rightWall.setAttribute("rotation", `0 90 0`);
+          rightWall.setAttribute("position", `${half} ${h} 0`);
+          rightWall.setAttribute(
+            "material",
+            "color: #f5f5f5; roughness: 0.9; metalness: 0.0; side: double"
+          );
+          el.appendChild(rightWall);
+
+          // Optional: Boden (hellgrau)
+          const floor = document.createElement("a-plane");
+          floor.setAttribute("width", d.size);
+          floor.setAttribute("height", d.size);
+          floor.setAttribute(
+            "material",
+            "color: #e5e7eb; roughness: 1.0; metalness: 0.0"
+          );
+          floor.setAttribute("rotation", "-90 0 0");
+          floor.setAttribute("position", `0 0.001 0`);
+          el.appendChild(floor);
+
+          // ---------- BILDER AN DEN INNENWÄNDEN ----------
+
+          // Wir verteilen sie: 3 vorne, 3 hinten, 1 links.
+          const picW = d.pictureWidth;
+          const picH = d.pictureHeightPlane;
+          const yPic = d.pictureHeight;
+
+          // Front-Wand (innen, also leicht nach innen verschoben)
+          const frontZ = -half + d.wallThickness / 2 + 0.01;
+          const frontXs = [-2, 0, 2]; // 3 Bilder
+          for (let i = 0; i < 3 && i < ROOM_IMAGES.length; i++) {
+            const plane = document.createElement("a-plane");
+            plane.setAttribute("width", picW);
+            plane.setAttribute("height", picH);
+            plane.setAttribute("material", `src: ${ROOM_IMAGES[i]}; side: front`);
+            plane.setAttribute(
+              "position",
+              `${frontXs[i]} ${yPic} ${frontZ + 0.01}`
+            );
+            plane.setAttribute("rotation", `0 0 0`);
+            el.appendChild(plane);
+          }
+
+          // Back-Wand (innen)
+          const backZ = half - d.wallThickness / 2 - 0.01;
+          const backXs = [-2, 0, 2];
+          for (let j = 0; j < 3 && 3 + j < ROOM_IMAGES.length; j++) {
+            const plane = document.createElement("a-plane");
+            plane.setAttribute("width", picW);
+            plane.setAttribute("height", picH);
+            plane.setAttribute(
+              "material",
+              `src: ${ROOM_IMAGES[3 + j]}; side: front`
+            );
+            plane.setAttribute(
+              "position",
+              `${backXs[j]} ${yPic} ${backZ - 0.01}`
+            );
+            plane.setAttribute("rotation", `0 180 0`);
+            el.appendChild(plane);
+          }
+
+          // Linke Wand (innen) – falls noch ein Bild übrig ist
+          const leftX = -half + d.wallThickness / 2 + 0.01;
+          if (ROOM_IMAGES.length > 6) {
+            const plane = document.createElement("a-plane");
+            plane.setAttribute("width", picW);
+            plane.setAttribute("height", picH);
+            plane.setAttribute(
+              "material",
+              `src: ${ROOM_IMAGES[6]}; side: front`
+            );
+            plane.setAttribute(
+              "position",
+              `${leftX + 0.01} ${yPic} 0`
+            );
+            plane.setAttribute("rotation", `0 90 0`);
+            el.appendChild(plane);
+          }
+
+          // (Rechte Wand wäre noch frei für spätere Erweiterungen)
+        }
+      });
+
+      document.addEventListener("DOMContentLoaded", () => {
+        const hud = document.getElementById("hud");
+        const TARGET_LAT = 53.703157;
+        const TARGET_LON = 9.983786;
+
+        if ("geolocation" in navigator) {
+          navigator.geolocation.watchPosition(
+            pos => {
+              const { latitude, longitude, accuracy } = pos.coords;
+              const dist = haversineDistance(
+                latitude,
+                longitude,
+                TARGET_LAT,
+                TARGET_LON
+              );
+              const distRounded = Math.round(dist);
+              const accRounded = Math.round(accuracy);
+
+              hud.textContent = locked
+                ? `Fixiert ✅ (Du bist ca. ${distRounded} m vom Spot entfernt, GPS ± ${accRounded} m).`
+                : `Du bist ca. ${distRounded} m vom Spot entfernt (GPS ± ${accRounded} m). Geh näher heran, schau nach vorne und tippe auf „Fixieren“, sobald es stabil wirkt.`;
+            },
+            () => {
+              hud.textContent =
+                "Standort konnte nicht ermittelt werden. Bitte GPS aktivieren und Browser-Berechtigung erteilen.";
+            },
+            { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+          );
+        } else {
+          hud.textContent =
+            "Dieses Gerät unterstützt keine Geolokation. AR-Galerie kann nicht korrekt ausgerichtet werden.";
+        }
+
+        
+        // --- Stabilitäts-Controls: Fixieren / Neu ausrichten ---
+        const roomRoot = document.querySelector("[gallery-room]");
+        const lockBtn = document.getElementById("lockBtn");
+        const realignBtn = document.getElementById("realignBtn");
+        const gpsAttrString = `latitude: ${TARGET_LAT}; longitude: ${TARGET_LON}`;
+
+        let locked = false;
+        let frozenPos = null;
+        let frozenQuat = null;
+
+        function updateButtons(dist, accuracy) {
+          if (!lockBtn || !realignBtn) return;
+          if (locked) {
+            lockBtn.disabled = true;
+            realignBtn.disabled = false;
+            return;
+          }
+          const ok = dist < 35 && accuracy < 25;
+          lockBtn.disabled = !ok;
+          realignBtn.disabled = true;
+        }
+
+        lockBtn?.addEventListener("click", () => {
+          if (!roomRoot || locked) return;
+          frozenPos = roomRoot.object3D.position.clone();
+          frozenQuat = roomRoot.object3D.quaternion.clone();
+
+          roomRoot.removeAttribute("gps-entity-place");
+          roomRoot.object3D.position.copy(frozenPos);
+          roomRoot.object3D.quaternion.copy(frozenQuat);
+
+          locked = true;
+          hud.textContent =
+            "Fixiert ✅ (GPS-Drift reduziert). Wenn es wieder driftet: „Neu ausrichten“.";
+          updateButtons(0, 0);
+        });
+
+        realignBtn?.addEventListener("click", () => {
+          if (!roomRoot) return;
+          roomRoot.setAttribute("gps-entity-place", gpsAttrString);
+          roomRoot.object3D.position.set(0, 0, 0);
+          roomRoot.object3D.quaternion.set(0, 0, 0, 1);
+          locked = false;
+          hud.textContent =
+            "Neu ausrichten… Geh kurz ein paar Schritte, schau dich um, und tippe dann wieder auf „Fixieren“.";
+        });
+
+
+        const backBtn = document.getElementById("backBtn");
+        backBtn.addEventListener("click", () => {
+          if (document.referrer) {
+            history.back();
+          } else {
+            window.location.href = "index.html";
+          }
+        });
+      });
+    </script>
+  </head>
+
+  <body>
+    <div id="titleBar">
+      <span>ARtHunt – Galerie-Raum</span>
+      <div style="display:flex; gap:0.5rem; align-items:center;"><button id="lockBtn" class="actionBtn" disabled>Fixieren</button><button id="realignBtn" class="actionBtn" disabled>Neu ausrichten</button><button id="backBtn" class="actionBtn">Zurück</button></div>
+    </div>
+    <div id="hud">Initialisiere AR &amp; Standort…</div>
+
+    <a-scene
+      vr-mode-ui="enabled: false"
+      embedded
+      renderer="logarithmicDepthBuffer: true; antialias: true"
+      arjs="sourceType: webcam; debugUIEnabled: false;"
+    >
+      <!-- AR-Kamera mit GPS -->
+      <a-camera
+        gps-camera="simulateAltitude: 0"
+        rotation-reader
+        position="0 1.6 0"
+      ></a-camera>
+
+      <!-- Galerieraum direkt am Geo-Spot -->
+      <a-entity
+        gps-entity-place="latitude: 53.703157; longitude: 9.983786"
+        gallery-room="size: 6; height: 3; wallThickness: 0.1; pictureHeight: 1.7; pictureWidth: 1.4; pictureHeightPlane: 0.9"
+      >
+      </a-entity>
+    </a-scene>
+  </body>
+</html>
